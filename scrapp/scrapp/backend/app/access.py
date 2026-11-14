@@ -59,6 +59,7 @@ def collage_out(c: dict) -> dict:
 def mesh_out(m: dict) -> dict:
     d = clean(m)
     d["glb_url"] = file_url(m.get("glb_file_id"))
+    d["thumbnail_url"] = file_url(m.get("thumb_file_id"))  # never Meshy's own link: it expires in days
     return d
 
 

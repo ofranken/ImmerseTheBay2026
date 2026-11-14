@@ -42,6 +42,14 @@ class Settings(BaseSettings):
 
     meshy_api_key: str = ""
     meshy_base_url: str = "https://api.meshy.ai/openapi"
+    # Model: "meshy-6-lite" is the cheap one (text preview 5 credits, image+texture 15); "latest" (Meshy 7.1) looks
+    # better but costs 20 + 10 for text and 30 for image. Check docs.meshy.ai/en/api/pricing before switching.
+    meshy_ai_model: str = "meshy-6-lite"
+    # PBR adds metallic/roughness/normal maps: bigger GLBs for a phone WebView, little visible gain here.
+    meshy_enable_pbr: bool = False
+    # The API is public, and every job spends the owner's credits: cap each user.
+    meshy_max_active_per_user: int = 2
+    meshy_daily_limit_per_user: int = 10
 
 
 @lru_cache

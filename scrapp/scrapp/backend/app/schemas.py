@@ -71,8 +71,7 @@ class CollageIn(BaseModel):
 
 
 class MeshTextIn(BaseModel):
-    prompt: str = Field(min_length=3, max_length=600)
-    art_style: Literal["realistic", "sculpture"] | None = None
+    prompt: str = Field(min_length=3, max_length=600)  # Meshy allows 800
 
 
 class MeshFromStickerIn(BaseModel):

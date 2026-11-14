@@ -331,6 +331,33 @@ def make_sticker(image_rgb: np.ndarray, mask: np.ndarray) -> tuple[bytes, tuple[
     return buf.tobytes(), (int(cx0), int(cy0), int(cx1 - cx0), int(cy1 - cy0))
 
 
+def cutout_png(image_rgb: np.ndarray, mask: np.ndarray, max_side: int = 1024, pad_frac: float = 0.06) -> bytes:
+    """Just the object on a transparent background: no white outline, cropped, <= max_side. For image-to-3D.
+
+    (make_sticker's outline is for humans; fed to a 3D generator it becomes part of the model.)
+    """
+    mask = mask.astype(np.uint8)
+    ys, xs = np.nonzero(mask)
+    if len(xs) == 0:
+        raise ValueError("empty mask")
+    h, w = mask.shape
+    x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+    pad = int(round(max(x1 - x0, y1 - y0) * pad_frac))
+    cx0, cy0, cx1, cy1 = max(0, x0 - pad), max(0, y0 - pad), min(w, x1 + pad + 1), min(h, y1 + pad + 1)
+    alpha = cv2.GaussianBlur(mask[cy0:cy1, cx0:cx1] * 255, (0, 0), 0.8)
+    rgb = image_rgb[cy0:cy1, cx0:cx1]
+    scale = min(1.0, max_side / float(max(alpha.shape)))
+    if scale < 1.0:
+        size = (max(1, int(alpha.shape[1] * scale)), max(1, int(alpha.shape[0] * scale)))
+        rgb = cv2.resize(rgb, size, interpolation=cv2.INTER_AREA)
+        alpha = cv2.resize(alpha, size, interpolation=cv2.INTER_AREA)
+    bgra = cv2.cvtColor(np.dstack([rgb, alpha]), cv2.COLOR_RGBA2BGRA)
+    ok, buf = cv2.imencode(".png", bgra)
+    if not ok:
+        raise RuntimeError("PNG encode failed")
+    return buf.tobytes()
+
+
 def mask_png(mask: np.ndarray) -> bytes:
     ok, buf = cv2.imencode(".png", mask.astype(np.uint8) * 255)
     if not ok:

@@ -104,6 +104,17 @@ class _StudioScreenState extends State<StudioScreen> {
                     Text(m.stage == 'refine' ? 'Painting textures…' : 'Sculpting…', style: const TextStyle(fontSize: 13)),
                   ],
                 ])),
+                IconButton(
+                  tooltip: 'Delete',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: () async {
+                    try {
+                      await context.read<Library>().deleteMesh(m.id);
+                    } catch (e) {
+                      if (context.mounted) toast(context, '$e');
+                    }
+                  },
+                ),
               ]),
             ),
           ),

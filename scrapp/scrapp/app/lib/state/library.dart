@@ -92,6 +92,12 @@ class Library extends ChangeNotifier {
   Future<MeshJob> meshFromText(String prompt) async => _addMesh(await api.post('/meshes/text', {'prompt': prompt}));
   Future<MeshJob> meshFromSticker(String stickerId) async => _addMesh(await api.post('/meshes/from-sticker', {'sticker_id': stickerId}));
 
+  Future<void> deleteMesh(String id) async {
+    await api.delete('/meshes/$id');
+    meshes.removeWhere((m) => m.id == id);
+    notifyListeners();
+  }
+
   MeshJob _addMesh(dynamic r) {
     final m = MeshJob(Map<String, dynamic>.from(r));
     meshes.insert(0, m);

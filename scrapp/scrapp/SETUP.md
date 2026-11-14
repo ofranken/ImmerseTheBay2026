@@ -165,6 +165,26 @@ server its own public address (signed image links need it), so don't set `PUBLIC
   rejects connections (TLS "internal error") from any IP not in **Network Access**; add this machine's public IP, or
   `0.0.0.0/0` for a hackathon. Without `MONGO_URI` pointing elsewhere, the script starts a local Docker MongoDB.
 
+## 4c. 3D models with Meshy
+
+"Grow a 3D thing" (Studio -> 3D) turns a text prompt into a GLB, and "Grow it into 3D" on a sticker turns the cut-out
+object into one. The server proxies Meshy, so the key never reaches the phone.
+
+1. Get an API key at https://www.meshy.ai/developers/keys (needs a **paid Meshy plan**; the key is shown once).
+2. Put it in `backend/.env` (never commit it): `MESHY_API_KEY=msy_...`, then restart the server.
+3. Cost: a text model is two Meshy jobs (a shape preview, then textures); a sticker model is one. With the default
+   `MESHY_AI_MODEL=meshy-6-lite` that is about 15 credits per text model and 15 per sticker model; `latest` (Meshy
+   7.1, nicer) is about 30. Prices change, see https://docs.meshy.ai/en/api/pricing.
+4. **Limits protect your credits** because the API is public: each user may have `MESHY_MAX_ACTIVE_PER_USER` (2) jobs
+   running and `MESHY_DAILY_LIMIT_PER_USER` (10) per day.
+5. Meshy deletes results after 3 days, so the server copies the GLB and a thumbnail into its own storage when a job
+   finishes.
+
+Test the whole flow without a key or credits: `uvicorn tests.mock_meshy:app --port 9100`, start the server with
+`MESHY_API_KEY=test MESHY_BASE_URL=http://127.0.0.1:9100/openapi`, then
+`python scripts/e2e_meshy.py http://127.0.0.1:8000 http://127.0.0.1:9100 USER PASSWORD`. The mock can also simulate
+"out of credits" (put `FAIL402` in the prompt), rate limits (`FAIL429`) and a failed job (`FAILTASK`).
+
 ## 5. If something fails
 
 | Symptom | Fix |
