@@ -20,9 +20,8 @@ class Settings(BaseSettings):
     segmenter: str = "sam3"
     # Local SAM 3 image checkpoint (sam3.pt). Empty = download facebook/sam3 from Hugging Face.
     sam3_checkpoint: str = ""
-    sam3_confidence: float = 0.4
-    # Concepts tried when the wearer didn't say a noun ("scrapbook that" alone), comma separated.
-    sam3_generic_prompts: str = "object,thing"
+    # Text-prompt score cutoff. 0.15 recovered a clock that 0.4 missed on the real-photo eval.
+    sam3_confidence: float = 0.15
     sam_device: str = "cuda"
     sam_max_side: int = 1536
     stickers_per_capture: int = 4

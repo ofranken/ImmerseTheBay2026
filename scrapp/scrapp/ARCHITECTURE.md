@@ -104,7 +104,7 @@ During a hunt the same phrase checks the find, so there's no second phrase to re
 `backend/app/services/segmentation.py` + `pipeline.py`
 
 1. Decode the original and downscale it so the long side is at most 1536 px (SAM input).
-2. **SAM 3 concept segmentation**: the spoken noun from "scrapbook that <noun>" is the text prompt; with no noun, generic prompts (`SAM3_GENERIC_PROMPTS`) are tried. Detections below `SAM3_CONFIDENCE` are dropped.
+2. **SAM 3 concept segmentation**: the spoken noun from "scrapbook that <noun>" is the text prompt; with no noun, SAM 3's point predictor is tapped at five points around the frame centre (generic words like "object" find almost nothing). Text detections below `SAM3_CONFIDENCE` are dropped.
 3. **Rank** every mask (`rank_candidates`):
    - drop masks under 0.4% or over 65% of the frame, and masks touching 3 or more borders (floor, wall, sky)
    - score = 0.55 x centrality (Gaussian on centroid distance from frame centre) + 0.25 x SAM quality + 0.20 x object-size prior, +0.15 if the mask covers the exact centre

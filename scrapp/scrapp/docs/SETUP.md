@@ -39,7 +39,7 @@ pip install -r requirements-gpu.txt
 hf auth login      # the checkpoint downloads on first start; or set SAM3_CHECKPOINT to a local sam3.pt
 ```
 
-SAM 3.1 (March 2026) only adds multi-object *video* tracking, and its checkpoint has no image loader yet, so stills use the SAM 3 image model.
+SAM 3 is by Meta (https://github.com/facebookresearch/sam3, SAM License). SAM 3.1 (March 2026) only adds multi-object *video* tracking, and its checkpoint has no image loader yet, so stills use the SAM 3 image model.
 
 **Edit `.env`:**
 

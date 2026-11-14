@@ -50,13 +50,15 @@ def candidate_from_mask(mask: np.ndarray, quality: float) -> MaskCandidate | Non
 class Sam3Segmenter:
     """SAM 3 image model (promptable concept segmentation) plus its SAM-style point predictor.
 
-    SAM 3 has no "segment everything" mode. `auto_masks` therefore runs text prompts: the spoken noun
-    from "scrapbook that <noun>" when there is one, otherwise a list of generic concepts
-    (`generic_prompts`). Overlapping results are deduplicated later by `rank_candidates`.
-    Tap-to-cut uses the point predictor (`enable_inst_interactivity`).
+    SAM 3 has no "segment everything" mode, so `auto_masks` has two paths:
+      * a spoken noun ("scrapbook that cup") is the text prompt;
+      * with no noun, generic concept words ("object", "thing") find almost nothing, so instead we tap a
+        small grid of points around the frame centre with the point predictor. That is the head-direction
+        prior: the wearer is facing what they care about.
+    Overlaps are deduplicated later by `rank_candidates`. Tap-to-cut uses the same point predictor.
     """
 
-    def __init__(self, checkpoint: str, device: str, confidence: float, generic_prompts: list[str]):
+    def __init__(self, checkpoint: str, device: str, confidence: float):
         import torch  # noqa: F401  (imported lazily so the API boots without a GPU stack)
         from sam3.model.sam3_image_processor import Sam3Processor
         from sam3.model_builder import build_sam3_image_model
@@ -70,7 +72,9 @@ class Sam3Segmenter:
         )
         self._processor = Sam3Processor(model, device=device, confidence_threshold=confidence)
         self._predictor = model.inst_interactive_predictor
-        self._generic = generic_prompts
+        # The builder makes the point-prompt tracker with backbone=None; it shares the main vision
+        # backbone (built with the extra SAM-style neck by enable_inst_interactivity=True).
+        self._predictor.model.backbone = model.backbone
         self._device = device
         self._lock = threading.Lock()  # one GPU, one request at a time
 
@@ -80,23 +84,45 @@ class Sam3Segmenter:
         return torch.autocast(self._device.split(":")[0], dtype=torch.bfloat16, enabled=self._device != "cpu")
 
     def auto_masks(self, image_rgb: np.ndarray, prompt: str | None = None) -> list[MaskCandidate]:
+        if prompt and prompt.strip():
+            return self._text_masks(image_rgb, prompt.strip())
+        return self._center_point_masks(image_rgb)
+
+    def _text_masks(self, image_rgb: np.ndarray, prompt: str) -> list[MaskCandidate]:
         import torch
         from PIL import Image
 
-        prompts = [prompt.strip()] if prompt and prompt.strip() else self._generic
         out: list[MaskCandidate] = []
         with self._lock, torch.inference_mode(), self._autocast():
             state = self._processor.set_image(Image.fromarray(image_rgb))
-            for text in prompts:
-                self._processor.reset_all_prompts(state)
-                self._processor.set_text_prompt(prompt=text, state=state)
-                masks, scores = state.get("masks"), state.get("scores")
-                if masks is None or len(scores) == 0:
-                    continue
-                masks = masks[:, 0].cpu().numpy()  # (N, H, W) bool
-                scores = scores.float().cpu().numpy()
+            self._processor.set_text_prompt(prompt=prompt, state=state)
+            masks, scores = state.get("masks"), state.get("scores")
+            if masks is None or len(scores) == 0:
+                return out
+            masks = masks[:, 0].cpu().numpy()  # (N, H, W) bool
+            for m, sc in zip(masks, scores.float().cpu().numpy()):
+                c = candidate_from_mask(m, float(sc))
+                if c:
+                    out.append(c)
+        return out
+
+    def _center_point_masks(self, image_rgb: np.ndarray) -> list[MaskCandidate]:
+        import torch
+        from PIL import Image
+
+        h, w = image_rgb.shape[:2]
+        points = [(0.5, 0.5), (0.32, 0.5), (0.68, 0.5), (0.5, 0.32), (0.5, 0.68)]
+        out: list[MaskCandidate] = []
+        with self._lock, torch.inference_mode(), self._autocast():
+            self._predictor.set_image(Image.fromarray(image_rgb))  # embed once, click five times
+            for fx, fy in points:
+                masks, scores, _ = self._predictor.predict(
+                    point_coords=np.array([[fx * w, fy * h]], dtype=np.float32),
+                    point_labels=np.array([1], dtype=np.int32),
+                    multimask_output=True,
+                )
                 for m, sc in zip(masks, scores):
-                    c = candidate_from_mask(m, float(sc))
+                    c = candidate_from_mask(m > 0, float(sc))
                     if c:
                         out.append(c)
         return out
@@ -156,8 +182,7 @@ def get_segmenter() -> Segmenter:
         if _segmenter is None:
             s = get_settings()
             if s.segmenter == "sam3":
-                prompts = [p.strip() for p in s.sam3_generic_prompts.split(",") if p.strip()]
-                _segmenter = Sam3Segmenter(s.sam3_checkpoint, s.sam_device, s.sam3_confidence, prompts)
+                _segmenter = Sam3Segmenter(s.sam3_checkpoint, s.sam_device, s.sam3_confidence)
             elif s.segmenter == "grabcut":
                 _segmenter = GrabCutSegmenter()
             else:
@@ -175,8 +200,13 @@ def _iou(a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
     return float(inter / union), float(containment)
 
 
-def rank_candidates(cands: list[MaskCandidate], height: int, width: int, k: int) -> list[MaskCandidate]:
+def rank_candidates(
+    cands: list[MaskCandidate], height: int, width: int, k: int, named: bool = False
+) -> list[MaskCandidate]:
     """Score masks by centrality, size and model quality; drop background-like masks; dedupe parts.
+
+    `named=True` means the wearer said what they wanted ("scrapbook that chair"), so big or
+    frame-touching masks are not treated as background.
 
     Returns at most k candidates, best (the hero sticker) first.
     """
@@ -186,11 +216,11 @@ def rank_candidates(cands: list[MaskCandidate], height: int, width: int, k: int)
     scored: list[MaskCandidate] = []
     for c in cands:
         frac = c.area / total
-        if frac < 0.004 or frac > 0.65:
+        if frac < 0.004 or (frac > 0.65 and not named):
             continue
         x, y, w, h = c.bbox
         borders = (x <= 1) + (y <= 1) + (x + w >= width - 1) + (y + h >= height - 1)
-        if borders >= 3:  # floor, wall, sky
+        if borders >= 3 and not named:  # floor, wall, sky
             continue
         ys, xs = np.nonzero(c.mask)
         d = math.hypot(xs.mean() - cx, ys.mean() - cy) / half_diag

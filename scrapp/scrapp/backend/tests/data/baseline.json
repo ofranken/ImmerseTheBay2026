@@ -1,0 +1,16 @@
+{
+  "note": "Reference run: RTX 5060 Laptop 8GB, SAM 3 (community mirror of sam3.pt), SAM3_CONFIDENCE=0.15, 17 COCO val photos",
+  "summary": {
+    "n_images": 17,
+    "text_mean_iou": 0.7067017301540841,
+    "text_hit_rate_50": 0.7647058823529411,
+    "generic_hero_mean_iou": 0.5352619377983991,
+    "generic_hero_hit_rate_50": 0.5294117647058824,
+    "generic_any_hit_rate_50": 0.7058823529411765,
+    "point_mean_iou": 0.5881757131521773,
+    "point_hit_rate_50": 0.5882352941176471,
+    "median_text_secs": 0.36704018199998245,
+    "median_generic_secs": 0.3498730680003064,
+    "median_point_secs": 0.3102615620000506
+  }
+}
