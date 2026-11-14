@@ -5,7 +5,8 @@ Newest priorities first. Move a line to "Done" when it ships.
 ## Top priority
 - [x] **Sticker to 3D** (Meshy image-to-3D). Verified on real Meshy: sticker -> GLB in ~45 s, 15 credits, ~15k
   triangles / 1.5 MB, thumbnail and model stored on our server, double-tap does not bill twice.
-  - [ ] Check the full on-phone flow (sticker screen -> progress -> "View the 3D model" -> add to a collage).
+  - [x] On-phone flow checked: sticker screen -> "View the 3D model" -> turntable preview -> added to a collage.
+  - [ ] 3D preview looks small and dark for black objects: enlarge the model on the pedestal and brighten the lights.
   - [ ] Warn or block when a sticker is not a coherent object (floor, window and wall fragments make bad models).
   - [ ] Optional "better quality" button that re-runs a hero sticker with `MESHY_AI_MODEL=latest` (~2x credits).
   - [ ] Tell the user when a model finishes (notification) so they don't have to watch the progress bar.
