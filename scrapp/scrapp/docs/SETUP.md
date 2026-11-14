@@ -148,9 +148,14 @@ server its own public address (signed image links need it), so don't set `PUBLIC
 
 - **Quick tunnel (default)**: no account. The URL is random (`https://<words>.trycloudflare.com`) and **changes every
   run**, so re-enter it in the app after restarting.
-- **Permanent hostname** (e.g. `scrapp.nmagic.dev`): create a tunnel in Cloudflare Zero Trust, add a public hostname
-  routed to `http://localhost:8000`, then put `CLOUDFLARE_TUNNEL_TOKEN=...` and `PUBLIC_HOSTNAME=scrapp.nmagic.dev` in
-  `backend/.env`. `run_public.sh` uses them automatically. Put the same URL in the app once.
+- **Permanent hostname** (`scrapp.nmagic.dev`, what we use): a dedicated tunnel named `scrapp` whose credentials live
+  only on this laptop. One-time setup, from a machine that has the Cloudflare login (`cloudflared tunnel login`):
+  `cloudflared tunnel create scrapp`, then `cloudflared tunnel route dns scrapp scrapp.nmagic.dev`, copy the tunnel's
+  `<id>.json` to `~/.cloudflared/` here, and write `~/.cloudflared/scrapp.yml` (`tunnel: <id>`, `credentials-file`,
+  ingress `scrapp.nmagic.dev` -> `http://localhost:8000`, then `http_status:404`). In `backend/.env` set
+  `CLOUDFLARED_CONFIG=/home/<you>/.cloudflared/scrapp.yml` and `PUBLIC_HOSTNAME=scrapp.nmagic.dev`;
+  `run_public.sh` uses them. Put `https://scrapp.nmagic.dev` in the app once. The credentials file is a secret and
+  is never committed. (Another way: `CLOUDFLARE_TUNNEL_TOKEN` + `PUBLIC_HOSTNAME` for a dashboard-managed tunnel.)
 - **`cloudflared`**: download from github.com/cloudflare/cloudflared/releases into `~/.local/bin/cloudflared`.
 - **VPNs**: Mullvad blocks the tunnel port (7844). `run_public.sh` detects Mullvad and runs only `cloudflared` outside
   the VPN (`mullvad-exclude`); other VPNs may need the same, or to be turned off.
