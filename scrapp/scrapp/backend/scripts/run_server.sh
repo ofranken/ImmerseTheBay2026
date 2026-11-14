@@ -10,4 +10,16 @@ else
   docker start scrapp-mongo >/dev/null 2>&1 || docker run -d --name scrapp-mongo --restart unless-stopped \
     -p 127.0.0.1:27017:27017 -v scrapp-mongo-data:/data/db mongo:7 >/dev/null
 fi
-exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+PORT="${PORT:-8000}"
+# Phone over USB: keep `adb reverse` alive. The tunnel silently disappears (cable blip, adb restart, another
+# tool resetting adb) and the app's images then fail with ERR_CONNECTION_REFUSED while the server looks fine.
+if command -v adb >/dev/null 2>&1; then
+  ( while true; do
+      if adb get-state >/dev/null 2>&1 && ! adb reverse --list 2>/dev/null | grep -q "tcp:$PORT"; then
+        adb reverse "tcp:$PORT" "tcp:$PORT" >/dev/null 2>&1 && echo "[run_server] restored adb reverse tcp:$PORT"
+      fi
+      sleep 5
+    done ) &
+  trap 'kill $! 2>/dev/null' EXIT
+fi
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

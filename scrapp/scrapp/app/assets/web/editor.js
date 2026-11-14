@@ -141,8 +141,16 @@ function dropPoint() {
   return zone.center.clone().add(new THREE.Vector3(((n % 3) - 1) * 0.25, ((n % 2) ? 0.15 : -0.1), (n % 4) * 0.04));
 }
 
+// TextureLoader rejects with a bare DOM Event ('[object Event]') when an image fails to load; say what failed.
+async function loadTexture(url) {
+  try { return await texLoader.loadAsync(url); } catch (e) {
+    let host = url; try { host = new URL(url).host; } catch (_) {}
+    throw new Error(`image failed to load from ${host} (is the server reachable?)`);
+  }
+}
+
 async function addSticker(spec) {
-  const tex = await texLoader.loadAsync(spec.url);
+  const tex = await loadTexture(spec.url);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const aspect = tex.image.width / tex.image.height;

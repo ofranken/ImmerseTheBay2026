@@ -133,6 +133,33 @@ arcore_api_key=AIza...          # optional, outdoor geo anchors
 
 **Without glasses:** Settings → Developer → **Mock glasses** (Meta's MockDeviceKit pairs simulated Ray-Ban Meta glasses and uses the phone camera as their camera), then "Simulate 'scrapbook that'". Or use **Photo** on the Scrap tab to send any phone photo through the same pipeline.
 
+## 4b. Public access: use the app from anywhere (no USB, same Wi-Fi not needed)
+
+The server runs on the GPU laptop. A Cloudflare tunnel (outbound-only, nothing opened on your router) gives it
+an https address the phone can reach from any network.
+
+```bash
+cd backend
+bash scripts/run_public.sh        # starts the tunnel + the API, prints the public URL
+```
+
+Then in the app: **Settings -> API base URL -> the printed URL -> Save server**, sign in. The script also tells the
+server its own public address (signed image links need it), so don't set `PUBLIC_BASE_URL` yourself.
+
+- **Quick tunnel (default)**: no account. The URL is random (`https://<words>.trycloudflare.com`) and **changes every
+  run**, so re-enter it in the app after restarting.
+- **Permanent hostname** (e.g. `scrapp.nmagic.dev`): create a tunnel in Cloudflare Zero Trust, add a public hostname
+  routed to `http://localhost:8000`, then put `CLOUDFLARE_TUNNEL_TOKEN=...` and `PUBLIC_HOSTNAME=scrapp.nmagic.dev` in
+  `backend/.env`. `run_public.sh` uses them automatically. Put the same URL in the app once.
+- **`cloudflared`**: download from github.com/cloudflare/cloudflared/releases into `~/.local/bin/cloudflared`.
+- **VPNs**: Mullvad blocks the tunnel port (7844). `run_public.sh` detects Mullvad and runs only `cloudflared` outside
+  the VPN (`mullvad-exclude`); other VPNs may need the same, or to be turned off.
+- **Who can reach it**: anyone with the URL can open the API (sign-ups are open). Keep the URL to your team, and use a
+  Cloudflare Access policy on a permanent hostname if it needs to stay up.
+- **MongoDB Atlas**: set `MONGO_URI=mongodb+srv://USER:PASSWORD@cluster.../` in `backend/.env` (never commit it). Atlas
+  rejects connections (TLS "internal error") from any IP not in **Network Access**; add this machine's public IP, or
+  `0.0.0.0/0` for a hackathon. Without `MONGO_URI` pointing elsewhere, the script starts a local Docker MongoDB.
+
 ## 5. If something fails
 
 | Symptom | Fix |

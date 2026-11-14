@@ -122,7 +122,14 @@ class Pill extends StatelessWidget {
         decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(30), border: Border.all(color: Palette.inkSoft.withValues(alpha: 0.25))),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[Icon(icon, size: 16, color: fg), const SizedBox(width: 6)],
-          Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 13)),
+          // Flexible so a long label (a full building name from the place lookup) wraps to two lines and
+          // then ellipsizes, instead of running off the edge and tripping the overflow banner.
+          Flexible(
+            child: Text(label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 13)),
+          ),
         ]),
       );
 }
