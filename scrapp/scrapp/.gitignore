@@ -1,0 +1,16 @@
+# Python
+backend/.venv/
+backend/.env
+backend/checkpoints/
+__pycache__/
+.pytest_cache/
+# Flutter / Android
+app/.dart_tool/
+app/build/
+app/.flutter-plugins*
+app/android/local.properties
+app/android/.gradle/
+app/android/app/src/main/assets/efficientdet_lite0.tflite
+app/ios/Pods/
+*.iml
+.idea/
