@@ -16,10 +16,13 @@ class Settings(BaseSettings):
     # Base URL phones and browsers use to reach this API (signed file URLs, web viewer links).
     public_base_url: str = "http://localhost:8000"
 
-    # Segmentation: "sam2" (GPU server, default), "grabcut" (CPU dev fallback, no SAM).
-    segmenter: str = "sam2"
-    sam2_checkpoint: str = "checkpoints/sam2.1_hiera_large.pt"
-    sam2_config: str = "configs/sam2.1/sam2.1_hiera_l.yaml"
+    # Segmentation: "sam3" (GPU server, default), "grabcut" (CPU dev fallback, no SAM).
+    segmenter: str = "sam3"
+    # Local SAM 3 image checkpoint (sam3.pt). Empty = download facebook/sam3 from Hugging Face.
+    sam3_checkpoint: str = ""
+    sam3_confidence: float = 0.4
+    # Concepts tried when the wearer didn't say a noun ("scrapbook that" alone), comma separated.
+    sam3_generic_prompts: str = "object,thing"
     sam_device: str = "cuda"
     sam_max_side: int = 1536
     stickers_per_capture: int = 4

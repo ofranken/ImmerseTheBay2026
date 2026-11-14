@@ -69,7 +69,7 @@ async def process_capture(capture_id: ObjectId) -> None:
         h, w = full_rgb.shape[:2]
         small, _ = resize_for_model(full_rgb, s.sam_max_side)
         seg = get_segmenter()
-        cands = await asyncio.to_thread(seg.auto_masks, small)
+        cands = await asyncio.to_thread(seg.auto_masks, small, capture.get("prompt"))
         ranked = rank_candidates(cands, small.shape[0], small.shape[1], s.stickers_per_capture)
         sticker_ids = []
         sx, sy = w / small.shape[1], h / small.shape[0]

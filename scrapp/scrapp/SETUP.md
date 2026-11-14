@@ -9,7 +9,7 @@ Rough time: 1 to 2 hours the first time, most of it installing toolchains and do
 | Android phone, Android 12+ | ARCore-supported (check Google's "ARCore supported devices" list) |
 | Ray-Ban Meta (or Oakley Meta) glasses | Paired in the **Meta AI** app. Optional at first: you can start with Mock glasses |
 | A computer for development | Windows, macOS or Linux |
-| A machine with an NVIDIA GPU for SAM | 8 GB+ VRAM for SAM 2.1 Large. Without one, use `SEGMENTER=grabcut` to develop |
+| A machine with an NVIDIA GPU for SAM | SAM 3 needs Python 3.12+, PyTorch 2.7+, CUDA 12.6+ and a GPU with plenty of VRAM (16 GB is comfortable). Without one, use `SEGMENTER=grabcut` to develop |
 | MongoDB | Local Docker, or a free MongoDB Atlas cluster |
 | Meshy API key | meshy.ai → API. Only needed for 3D generation |
 | Google Cloud key with **ARCore API** enabled | Optional. Only for outdoor geo anchors |
@@ -28,22 +28,24 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**SAM 2.1 on the GPU machine:**
+**SAM 3 on the GPU machine (Python 3.12+):**
 
 ```bash
 # 1. PyTorch matching your CUDA version (see pytorch.org), e.g.
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-# 2. SAM 2
+pip install torch==2.10.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+# 2. SAM 3
 pip install -r requirements-gpu.txt
-# 3. Checkpoint (~900 MB)
-bash scripts/download_sam2.sh
+# 3. Weights: request access at https://huggingface.co/facebook/sam3, then log in once
+hf auth login      # the checkpoint downloads on first start; or set SAM3_CHECKPOINT to a local sam3.pt
 ```
+
+SAM 3.1 (March 2026) only adds multi-object *video* tracking, and its checkpoint has no image loader yet, so stills use the SAM 3 image model.
 
 **Edit `.env`:**
 
 - `JWT_SECRET`: any long random string
 - `PUBLIC_BASE_URL`: the address your **phone** uses to reach this server, e.g. `http://192.168.1.50:8000` (your computer's LAN IP, same Wi-Fi). Signed image links are built from it, so `localhost` won't work on the phone.
-- `SEGMENTER=sam2` on the GPU box, or `SEGMENTER=grabcut` on a laptop
+- `SEGMENTER=sam3` on the GPU box, or `SEGMENTER=grabcut` on a laptop
 - `MESHY_API_KEY=...`
 
 **Run it:**
@@ -140,5 +142,5 @@ arcore_api_key=AIza...          # optional, outdoor geo anchors
 | "Voice unavailable" | Grant Mic access in Settings, and make sure Speech is enabled for the project in the Developer Center |
 | Button pill stays "unavailable" | Inputs not enabled for the project in the Developer Center |
 | Uploads fail on the phone | `API_BASE` / `PUBLIC_BASE_URL` must be the LAN IP, not localhost. Phone and computer on the same Wi-Fi; firewall allows port 8000 |
-| Stickers never appear | Check the server log. `SEGMENTER=sam2` without a GPU fails, so switch to `grabcut` to confirm the rest works |
+| Stickers never appear | Check the server log. `SEGMENTER=sam3` without a GPU fails, so switch to `grabcut` to confirm the rest works |
 | Gradle: Kotlin/AGP version errors | Keep AGP 8.13.x, Kotlin 2.3.x, JDK 21 and Gradle 8.14.x as set in `android/`. SceneView 4.18 and DAT 1.0.1 need them |

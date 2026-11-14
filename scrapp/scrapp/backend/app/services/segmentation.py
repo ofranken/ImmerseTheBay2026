@@ -1,6 +1,6 @@
 """Sticker segmentation.
 
-Default backend is SAM 2.1 running on a GPU: automatic mask generation over the whole frame, then
+Default backend is SAM 3 running on a GPU: text-prompted concept segmentation over the whole frame, then
 `rank_candidates` scores every mask by how central, how well-formed and how object-sized it is.
 The glasses have no eye tracking, so "where the wearer was looking" is approximated by the centre of
 the head-mounted camera frame: the most central object becomes the hero sticker.
@@ -31,7 +31,7 @@ class MaskCandidate:
 
 
 class Segmenter(Protocol):
-    def auto_masks(self, image_rgb: np.ndarray) -> list[MaskCandidate]: ...
+    def auto_masks(self, image_rgb: np.ndarray, prompt: str | None = None) -> list[MaskCandidate]: ...
 
     def mask_at_point(self, image_rgb: np.ndarray, x: int, y: int) -> MaskCandidate | None: ...
 
@@ -46,43 +46,67 @@ def candidate_from_mask(mask: np.ndarray, quality: float) -> MaskCandidate | Non
     return MaskCandidate(mask=mask, quality=float(quality), bbox=(x0, y0, x1 - x0 + 1, y1 - y0 + 1), area=area)
 
 
-# --------------------------------------------------------------------------------------------- SAM 2.1
-class Sam2Segmenter:
-    def __init__(self, checkpoint: str, config: str, device: str = "cuda"):
-        import torch  # noqa: F401  (imported lazily so the API boots without a GPU stack)
-        from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-        from sam2.build_sam import build_sam2
-        from sam2.sam2_image_predictor import SAM2ImagePredictor
+# ------------------------------------------------------------------------------------------- SAM 3
+class Sam3Segmenter:
+    """SAM 3 image model (promptable concept segmentation) plus its SAM-style point predictor.
 
-        model = build_sam2(config, checkpoint, device=device, apply_postprocessing=False)
-        self._auto = SAM2AutomaticMaskGenerator(
-            model,
-            points_per_side=24,
-            pred_iou_thresh=0.80,
-            stability_score_thresh=0.90,
-            min_mask_region_area=400,
+    SAM 3 has no "segment everything" mode. `auto_masks` therefore runs text prompts: the spoken noun
+    from "scrapbook that <noun>" when there is one, otherwise a list of generic concepts
+    (`generic_prompts`). Overlapping results are deduplicated later by `rank_candidates`.
+    Tap-to-cut uses the point predictor (`enable_inst_interactivity`).
+    """
+
+    def __init__(self, checkpoint: str, device: str, confidence: float, generic_prompts: list[str]):
+        import torch  # noqa: F401  (imported lazily so the API boots without a GPU stack)
+        from sam3.model.sam3_image_processor import Sam3Processor
+        from sam3.model_builder import build_sam3_image_model
+
+        # Empty checkpoint -> the builder downloads facebook/sam3 (needs `hf auth login`).
+        model = build_sam3_image_model(
+            device=device,
+            checkpoint_path=checkpoint or None,
+            load_from_HF=not checkpoint,
+            enable_inst_interactivity=True,
         )
-        self._predictor = SAM2ImagePredictor(model)
+        self._processor = Sam3Processor(model, device=device, confidence_threshold=confidence)
+        self._predictor = model.inst_interactive_predictor
+        self._generic = generic_prompts
+        self._device = device
         self._lock = threading.Lock()  # one GPU, one request at a time
 
-    def auto_masks(self, image_rgb: np.ndarray) -> list[MaskCandidate]:
+    def _autocast(self):
         import torch
 
-        with self._lock, torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            raw = self._auto.generate(image_rgb)
-        out = []
-        for m in raw:
-            quality = float(m.get("predicted_iou", 0.0)) * float(m.get("stability_score", 1.0))
-            c = candidate_from_mask(m["segmentation"], quality)
-            if c:
-                out.append(c)
+        return torch.autocast(self._device.split(":")[0], dtype=torch.bfloat16, enabled=self._device != "cpu")
+
+    def auto_masks(self, image_rgb: np.ndarray, prompt: str | None = None) -> list[MaskCandidate]:
+        import torch
+        from PIL import Image
+
+        prompts = [prompt.strip()] if prompt and prompt.strip() else self._generic
+        out: list[MaskCandidate] = []
+        with self._lock, torch.inference_mode(), self._autocast():
+            state = self._processor.set_image(Image.fromarray(image_rgb))
+            for text in prompts:
+                self._processor.reset_all_prompts(state)
+                self._processor.set_text_prompt(prompt=text, state=state)
+                masks, scores = state.get("masks"), state.get("scores")
+                if masks is None or len(scores) == 0:
+                    continue
+                masks = masks[:, 0].cpu().numpy()  # (N, H, W) bool
+                scores = scores.float().cpu().numpy()
+                for m, sc in zip(masks, scores):
+                    c = candidate_from_mask(m, float(sc))
+                    if c:
+                        out.append(c)
         return out
 
     def mask_at_point(self, image_rgb: np.ndarray, x: int, y: int) -> MaskCandidate | None:
         import torch
+        from PIL import Image
 
-        with self._lock, torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            self._predictor.set_image(image_rgb)
+        with self._lock, torch.inference_mode(), self._autocast():
+            self._predictor.set_image(Image.fromarray(image_rgb))
             masks, scores, _ = self._predictor.predict(
                 point_coords=np.array([[x, y]], dtype=np.float32),
                 point_labels=np.array([1], dtype=np.int32),
@@ -108,7 +132,7 @@ class GrabCutSegmenter:
         largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
         return labels == largest
 
-    def auto_masks(self, image_rgb: np.ndarray) -> list[MaskCandidate]:
+    def auto_masks(self, image_rgb: np.ndarray, prompt: str | None = None) -> list[MaskCandidate]:
         h, w = image_rgb.shape[:2]
         rect = (int(w * 0.2), int(h * 0.2), int(w * 0.6), int(h * 0.6))
         c = candidate_from_mask(self._grabcut(image_rgb, rect), 0.5)
@@ -131,8 +155,9 @@ def get_segmenter() -> Segmenter:
     with _seg_lock:
         if _segmenter is None:
             s = get_settings()
-            if s.segmenter == "sam2":
-                _segmenter = Sam2Segmenter(s.sam2_checkpoint, s.sam2_config, s.sam_device)
+            if s.segmenter == "sam3":
+                prompts = [p.strip() for p in s.sam3_generic_prompts.split(",") if p.strip()]
+                _segmenter = Sam3Segmenter(s.sam3_checkpoint, s.sam_device, s.sam3_confidence, prompts)
             elif s.segmenter == "grabcut":
                 _segmenter = GrabCutSegmenter()
             else:

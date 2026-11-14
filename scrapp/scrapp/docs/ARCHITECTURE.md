@@ -19,7 +19,7 @@ flowchart LR
   end
   subgraph Server["FastAPI on a GPU box"]
     API["REST API + JWT"]
-    SAM["SAM 2.1 auto-masks\n+ centrality ranking"]
+    SAM["SAM 3 text-prompted masks\n+ centrality ranking"]
     MATCH["Hunt matcher\nSIFT + RANSAC"]
     MESHY["Meshy proxy"]
     DB[("MongoDB + GridFS")]
@@ -44,7 +44,7 @@ flowchart LR
 | Press-and-hold capture, up to 5 s of frames + eye-tracking pairs | One still per trigger: voice "scrapbook that" or a capture-button press | The glasses have no eye tracking and no app-controlled display; one 720p still is enough for stickers and is fast over Bluetooth |
 | Stitch frames by feature matching | Dropped | Single frame; the stitching step existed to widen a headset's field of view |
 | Gaze samples pick the object | **Head-direction prior**: masks closest to the centre of the head-mounted camera rank highest | The wearer is facing what they care about when they speak; this replaces gaze |
-| Python/OpenCV/SAM 2 off-board pipeline | Same idea: FastAPI + SAM 2.1 on a GPU server | Matches your answer: server SAM only |
+| Python/OpenCV/SAM 2 off-board pipeline | Same idea: FastAPI + SAM 3 on a GPU server | Matches your answer: server SAM only |
 | 3D collage built in the headset | 3D collage built on the phone (three.js), viewable in AR and on the web | Glasses can't render; the phone is the canvas |
 | Off-axis projection | Not built | Needs head tracking against a fixed screen; left for later |
 | Web viewer, 3DS, IG, Pinterest, Tumblr | Web viewer link, stereo side-by-side export ("3DS-style" pair, not MPO), system share sheet for IG/Pinterest/Tumblr | Share sheet covers every installed app without per-network SDKs |
@@ -61,7 +61,7 @@ flowchart LR
 | "Hold up an apple" detection | MediaPipe Tasks, EfficientDet-Lite0 (COCO 80 classes) | On-device, fast, knows apple/banana/cup/book/etc. |
 | 3D collage editor + web viewer | **three.js r187** in a WebView, served from a tiny local HTTP server inside the app | The same file renders in the app and at the public web link. Flutter's native 3D options are still experimental |
 | Backend | **Python FastAPI + Motor (MongoDB) + GridFS** | Same language as SAM/OpenCV, so one server codebase |
-| Segmentation | **SAM 2.1 Hiera-L** (Apache-2.0) on a CUDA GPU | See section 5 |
+| Segmentation | **SAM 3** image model (SAM License) on a CUDA GPU | See section 5 |
 | 3D generation | **Meshy API** (text-to-3D preview/refine, image-to-3D from a sticker) | API key stays on the server |
 
 Other frameworks only appear where Flutter cannot reach: the glasses SDK and ARCore. Everything else is Dart.
@@ -104,14 +104,14 @@ During a hunt the same phrase checks the find, so there's no second phrase to re
 `backend/app/services/segmentation.py` + `pipeline.py`
 
 1. Decode the original and downscale it so the long side is at most 1536 px (SAM input).
-2. **SAM 2.1 automatic mask generation** (24x24 point grid, `pred_iou_thresh 0.80`, `stability 0.90`).
+2. **SAM 3 concept segmentation**: the spoken noun from "scrapbook that <noun>" is the text prompt; with no noun, generic prompts (`SAM3_GENERIC_PROMPTS`) are tried. Detections below `SAM3_CONFIDENCE` are dropped.
 3. **Rank** every mask (`rank_candidates`):
    - drop masks under 0.4% or over 65% of the frame, and masks touching 3 or more borders (floor, wall, sky)
    - score = 0.55 x centrality (Gaussian on centroid distance from frame centre) + 0.25 x SAM quality + 0.20 x object-size prior, +0.15 if the mask covers the exact centre
    - remove duplicates and parts of an already-kept object (IoU or containment > 0.6)
    - keep the top 4; the first is the **hero** sticker
 4. **Die-cut**: upscale the mask to full resolution, close/open, feather 1 px, dilate a white border (5% of object size), crop, and save a transparent PNG. The mask PNG and the object box in source pixels are stored too.
-5. **Tap-to-cut**: in the app, tap anything on the original photo. `SAM2ImagePredictor` gets a single positive point and the best of 3 masks becomes a new sticker.
+5. **Tap-to-cut**: in the app, tap anything on the original photo. SAM 3's point predictor (`inst_interactive_predictor`) gets a single positive point and the best of 3 masks becomes a new sticker.
 
 **Alternatives considered**
 

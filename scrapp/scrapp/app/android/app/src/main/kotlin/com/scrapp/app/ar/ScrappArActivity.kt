@@ -23,9 +23,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -237,6 +237,7 @@ fun ScrappArScreen(req: ArRequest, onDone: (List<String>) -> Unit) {
         if (objectItems.isNotEmpty() && finder == null) message = "Object finder unavailable. Tap a surface to place it."
     }
 
+    var lastFrame by remember { mutableStateOf<com.google.ar.core.Frame?>(null) }
     Box(Modifier.fillMaxSize().onSizeChanged { viewSize = it }) {
         ARSceneView(
             modifier = Modifier.fillMaxSize(),
@@ -249,6 +250,7 @@ fun ScrappArScreen(req: ArRequest, onDone: (List<String>) -> Unit) {
             sessionConfiguration = { session, config -> imageDb.applyTo(config, session) },
             onSessionCreated = { session -> imageDb.bind(session) },
             onSessionUpdated = { session, frame ->
+                lastFrame = frame
                 // 1) Exact objects / artworks (hunt finds, "on the exact thing" shares)
                 for (img in frame.getUpdatedTrackables(AugmentedImage::class.java)) {
                     if (img.trackingState == TrackingState.TRACKING &&
@@ -320,10 +322,11 @@ fun ScrappArScreen(req: ArRequest, onDone: (List<String>) -> Unit) {
                 }
             },
             onTouchEvent = { e: MotionEvent, hit ->
-                if (e.action == MotionEvent.ACTION_UP && hit != null) {
+                val arHit = if (e.action == MotionEvent.ACTION_UP) lastFrame?.hitTest(e.x, e.y)?.firstOrNull() else null
+                if (arHit != null) {
                     val next = req.items.firstOrNull { it.id !in anchors && it.id !in tracked && it.anchor.mode != "image" }
                     if (next != null) {
-                        anchors[next.id] = hit.createAnchor()
+                        anchors[next.id] = arHit.createAnchor()
                         markFound(next.id, "Placed ${next.title}")
                         true
                     } else false

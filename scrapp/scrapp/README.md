@@ -8,7 +8,7 @@ An AR scrapbook for Meta AI glasses. Say **"scrapbook that"** (or press the capt
 | `app/android/.../glasses/` | Kotlin: Meta Wearables DAT 1.0.1 session, voice, capture button, outbox, foreground service |
 | `app/android/.../ar/` | Kotlin: ARCore/SceneView AR view, MediaPipe "hold up an apple" detection |
 | `app/assets/web/` | three.js 3D collage editor; the same page is the public web viewer |
-| `backend/` | FastAPI + MongoDB/GridFS + SAM 2.1 segmentation, hunt matching, Meshy proxy |
+| `backend/` | FastAPI + MongoDB/GridFS + SAM 3 segmentation, hunt matching, Meshy proxy |
 | `docs/ARCHITECTURE.md` | How every piece works and why: glasses data, voice, segmentation, anchoring, Android vs iOS |
 | `docs/SETUP.md` | Setup from zero, first run, troubleshooting |
 | `tools/make_textures.py` | Regenerates the paper-grain and fuzzy-grass textures |
