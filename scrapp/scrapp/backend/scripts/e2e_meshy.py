@@ -73,11 +73,18 @@ check("no preview was refined (and billed) twice", all(n == 1 for n in refs.valu
 
 # ---- sticker to 3D: a transparent cutout without the white outline
 stickers = c.get("/stickers", params={"scope": "mine"}, headers=H).json()
+used = {j.get("sticker_id") for j in c.get("/meshes", headers=H).json()}
+stickers = [x for x in stickers if x["id"] not in used]  # pick one with no model yet
 if stickers:
     r = c.post("/meshes/from-sticker", json={"sticker_id": stickers[0]["id"]}, headers=H)
     check("sticker job accepted", r.status_code == 200, r.text[:150])
     d = wait_done(r.json()["id"])
     check("sticker job finishes with a GLB", bool(d.get("glb_url")), str(d))
+    again = c.post("/meshes/from-sticker", json={"sticker_id": stickers[0]["id"]}, headers=H)
+    check("second tap on the same sticker returns the same job (no second charge)",
+          again.status_code == 200 and again.json()["id"] == d["id"], again.text[:120])
+    n_image = len([s for s in m.get("/_debug/requests").json() if s["kind"] == "image"])
+    check("Meshy was asked for exactly one image-to-3D job", n_image == 1, str(n_image))
     img = [s for s in m.get("/_debug/requests").json() if s["kind"] == "image"][-1]
     import base64
     import io

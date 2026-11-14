@@ -331,12 +331,27 @@ def make_sticker(image_rgb: np.ndarray, mask: np.ndarray) -> tuple[bytes, tuple[
     return buf.tobytes(), (int(cx0), int(cy0), int(cx1 - cx0), int(cy1 - cy0))
 
 
-def cutout_png(image_rgb: np.ndarray, mask: np.ndarray, max_side: int = 1024, pad_frac: float = 0.06) -> bytes:
+def fill_holes(mask: np.ndarray, max_frac: float) -> np.ndarray:
+    """Fill enclosed holes up to max_frac of the object's area. SAM often leaves bright patches (a white belly)
+    as holes; a 3D generator would see background through them. Big holes (a mug handle) are kept."""
+    m = mask.astype(np.uint8)
+    inv = (1 - m).astype(np.uint8)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(inv, 4)
+    border = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+    limit = max_frac * max(int(m.sum()), 1)
+    for i in range(1, n):
+        if i not in border and stats[i, cv2.CC_STAT_AREA] <= limit:
+            m[labels == i] = 1
+    return m.astype(bool)
+
+
+def cutout_png(image_rgb: np.ndarray, mask: np.ndarray, max_side: int = 1024, min_side: int = 512,
+               pad_frac: float = 0.06) -> bytes:
     """Just the object on a transparent background: no white outline, cropped, <= max_side. For image-to-3D.
 
     (make_sticker's outline is for humans; fed to a 3D generator it becomes part of the model.)
     """
-    mask = mask.astype(np.uint8)
+    mask = fill_holes(mask, 0.10).astype(np.uint8)
     ys, xs = np.nonzero(mask)
     if len(xs) == 0:
         raise ValueError("empty mask")
@@ -346,11 +361,14 @@ def cutout_png(image_rgb: np.ndarray, mask: np.ndarray, max_side: int = 1024, pa
     cx0, cy0, cx1, cy1 = max(0, x0 - pad), max(0, y0 - pad), min(w, x1 + pad + 1), min(h, y1 + pad + 1)
     alpha = cv2.GaussianBlur(mask[cy0:cy1, cx0:cx1] * 255, (0, 0), 0.8)
     rgb = image_rgb[cy0:cy1, cx0:cx1]
-    scale = min(1.0, max_side / float(max(alpha.shape)))
-    if scale < 1.0:
-        size = (max(1, int(alpha.shape[1] * scale)), max(1, int(alpha.shape[0] * scale)))
-        rgb = cv2.resize(rgb, size, interpolation=cv2.INTER_AREA)
-        alpha = cv2.resize(alpha, size, interpolation=cv2.INTER_AREA)
+    longest = float(max(alpha.shape))
+    # Small objects (tiny source photos) get upscaled so Meshy has something to work with; big ones are shrunk.
+    scale = max_side / longest if longest > max_side else (min_side / longest if longest < min_side else 1.0)
+    if scale != 1.0:
+        size = (max(1, int(round(alpha.shape[1] * scale))), max(1, int(round(alpha.shape[0] * scale))))
+        interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+        rgb = cv2.resize(rgb, size, interpolation=interp)
+        alpha = cv2.resize(alpha, size, interpolation=interp)
     bgra = cv2.cvtColor(np.dstack([rgb, alpha]), cv2.COLOR_RGBA2BGRA)
     ok, buf = cv2.imencode(".png", bgra)
     if not ok:

@@ -41,7 +41,8 @@ def test_text_preview_request_matches_the_current_api():
     assert run(client_with(handler).text_preview("a tiny frog")) == "task-1"
     assert seen["url"] == "https://api.meshy.ai/openapi/v2/text-to-3d"
     assert seen["auth"] == "Bearer msy_test_key"
-    assert seen["body"] == {"mode": "preview", "prompt": "a tiny frog", "ai_model": "meshy-6-lite", "target_formats": ["glb"]}
+    assert seen["body"] == {"mode": "preview", "prompt": "a tiny frog", "ai_model": "meshy-6-lite", "target_formats": ["glb"],
+                            "should_remesh": True, "target_polycount": 15000}
     assert "art_style" not in seen["body"]  # deprecated: Meshy ignores it
 
 
@@ -68,6 +69,7 @@ def test_image_to_3d_sends_a_png_data_uri():
     assert seen["url"].endswith("/openapi/v1/image-to-3d")
     assert b["image_url"] == "data:image/png;base64," + base64.b64encode(b"\x89PNGfake").decode()
     assert b["should_texture"] is True and b["ai_model"] == "meshy-6-lite" and b["target_formats"] == ["glb"]
+    assert b["should_remesh"] is True and b["target_polycount"] == 15000
 
 
 @pytest.mark.parametrize("status,headers", [(402, {}), (429, {"Retry-After": "7"}), (401, {}), (400, {})])
@@ -134,7 +136,7 @@ def test_cutout_is_the_object_alone_on_transparent_background():
     png = cutout_png(img, mask)
     out = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_UNCHANGED)
     assert out.shape[2] == 4
-    assert out.shape[0] <= 190 and out.shape[1] <= 190  # cropped to the object plus a small margin
+    assert abs(out.shape[0] - out.shape[1]) <= 8  # cropped to the (round) object plus a small margin, then scaled to 512
     assert out[0, 0, 3] == 0  # corner transparent
     assert out[out.shape[0] // 2, out.shape[1] // 2, 3] == 255  # centre opaque
     opaque = out[..., 3] > 200
@@ -161,3 +163,29 @@ def test_no_key_gives_the_app_a_plain_503(monkeypatch):
     with pytest.raises(HTTPException) as e:
         _client()
     assert e.value.status_code == 503 and "not set up" in e.value.detail
+
+
+def test_cutout_fills_mask_holes_but_keeps_a_real_handle():
+    h, w = 400, 400
+    img = np.full((h, w, 3), 128, np.uint8)
+    yy, xx = np.mgrid[:h, :w]
+    body = (xx - 200) ** 2 + (yy - 200) ** 2 <= 140 ** 2
+    small_hole = (xx - 200) ** 2 + (yy - 220) ** 2 <= 25 ** 2      # a SAM error: ~3% of the body
+    handle = (xx - 280) ** 2 + (yy - 150) ** 2 <= 60 ** 2          # a genuine big opening: ~18% of the body
+    mask = body & ~small_hole & ~handle
+    out = cv2.imdecode(np.frombuffer(cutout_png(img, mask), np.uint8), cv2.IMREAD_UNCHANGED)
+    ys, xs = np.nonzero(body)
+    oy, ox = ys.min() - int(round((ys.max() - ys.min()) * 0.06)), xs.min() - int(round((xs.max() - xs.min()) * 0.06))
+    s = out.shape[0] / ((ys.max() - ys.min() + 1) * 1.12)  # approx scale from source px to output px
+    def alpha_at(x, y):
+        return out[int((y - oy) * s), int((x - ox) * s), 3]
+    assert alpha_at(200, 220) > 200   # small hole filled
+    assert alpha_at(280, 150) < 50    # big opening kept
+
+
+def test_tiny_cutouts_are_upscaled_for_meshy():
+    img = np.full((60, 80, 3), 90, np.uint8)
+    mask = np.zeros((60, 80), bool)
+    mask[10:50, 15:65] = True
+    out = cv2.imdecode(np.frombuffer(cutout_png(img, mask), np.uint8), cv2.IMREAD_UNCHANGED)
+    assert max(out.shape[:2]) >= 512

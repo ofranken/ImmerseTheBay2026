@@ -12,6 +12,7 @@ import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
 import 'capture_screen.dart';
 import 'collage_editor_screen.dart';
+import 'studio_screen.dart';
 
 class StickerScreen extends StatelessWidget {
   const StickerScreen({super.key, required this.sticker});
@@ -62,18 +63,7 @@ class StickerScreen extends StatelessWidget {
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CaptureScreen(captureId: sticker.captureId))),
             ),
             const SizedBox(height: 22),
-            FuzzyButton(
-              label: 'Grow it into 3D (Meshy)',
-              icon: Icons.grass_rounded,
-              onPressed: () async {
-                try {
-                  await context.read<Library>().meshFromSticker(sticker.id);
-                  if (context.mounted) toast(context, 'Growing a 3D model. Find it in Studio → 3D.');
-                } catch (e) {
-                  if (context.mounted) toast(context, '$e');
-                }
-              },
-            ),
+            _GrowTo3D(sticker: sticker),
             const SizedBox(height: 22),
             TextButton.icon(
               icon: const Icon(Icons.delete_outline_rounded, color: Palette.danger),
@@ -191,5 +181,61 @@ class _ShareSheetState extends State<_ShareSheet> {
         ]),
       ),
     );
+  }
+}
+
+
+/// Sticker -> 3D (Meshy). Shows the state of this sticker's model: start, growing, ready (view) or failed (retry).
+class _GrowTo3D extends StatelessWidget {
+  const _GrowTo3D({required this.sticker});
+  final Sticker sticker;
+
+  MeshJob? _job(Library lib) {
+    for (final m in lib.meshes) {
+      if (m.stickerId == sticker.id && !m.failed) return m; // newest first; a failed attempt doesn't block a retry
+    }
+    return null;
+  }
+
+  Future<void> _start(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Make this 3D?'),
+        content: const Text('The sticker picture is sent to Meshy, a third-party service, to build a 3D model. '
+            'It takes a few minutes and uses the project\'s Meshy credits.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Make it 3D')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await context.read<Library>().meshFromSticker(sticker.id);
+      if (context.mounted) toast(context, 'Growing a 3D model. It shows up here and in Studio → 3D.');
+    } catch (e) {
+      if (context.mounted) toast(context, '$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final job = _job(context.watch<Library>());
+    if (job == null) {
+      return FuzzyButton(label: 'Grow it into 3D (Meshy)', icon: Icons.grass_rounded, onPressed: () => _start(context));
+    }
+    if (job.done) {
+      return FuzzyButton(
+        label: 'View the 3D model',
+        icon: Icons.view_in_ar_rounded,
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeshPreviewScreen(mesh: job))),
+      );
+    }
+    return Column(children: [
+      FuzzyButton(label: 'Growing 3D… ${(job.overall * 100).round()}%', icon: Icons.grass_rounded, busy: true, onPressed: null),
+      const SizedBox(height: 8),
+      FuzzyProgress(value: job.overall),
+    ]);
   }
 }

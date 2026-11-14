@@ -49,6 +49,7 @@ class MeshyClient:
         self._headers = {"Authorization": f"Bearer {s.meshy_api_key}"}
         self._model = s.meshy_ai_model
         self._pbr = s.meshy_enable_pbr
+        self._polycount = s.meshy_target_polycount
         self._transport = transport
 
     def _http(self, timeout: float = 60) -> httpx.AsyncClient:
@@ -82,6 +83,7 @@ class MeshyClient:
     async def text_preview(self, prompt: str) -> str:
         return await self._post("/v2/text-to-3d", {
             "mode": "preview", "prompt": prompt, "ai_model": self._model, "target_formats": ["glb"],
+            "should_remesh": True, "target_polycount": self._polycount,
         })
 
     async def text_refine(self, preview_task_id: str) -> str:
@@ -94,7 +96,7 @@ class MeshyClient:
         data_uri = "data:image/png;base64," + base64.b64encode(png_bytes).decode()
         return await self._post("/v1/image-to-3d", {
             "image_url": data_uri, "ai_model": self._model, "should_texture": True, "enable_pbr": self._pbr,
-            "target_formats": ["glb"],
+            "should_remesh": True, "target_polycount": self._polycount, "target_formats": ["glb"],
         })
 
     async def task(self, stage: str, task_id: str) -> dict:

@@ -59,6 +59,7 @@ class MeshJob {
   String get stage => j['stage'] ?? 'preview';
   int get progress => (j['progress'] as num?)?.toInt() ?? 0;
   String? get prompt => j['prompt'];
+  String? get stickerId => j['sticker_id'];
   String? get glbUrl => j['glb_url'];
   String? get thumbnailUrl => j['thumbnail_url'];
   String? get error => j['error'];

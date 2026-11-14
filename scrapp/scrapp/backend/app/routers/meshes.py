@@ -91,6 +91,13 @@ async def from_sticker(body: MeshFromStickerIn, user=Depends(current_user)):
     s = await db().stickers.find_one({"_id": oid(body.sticker_id)})
     if not s or not await sticker_visible(user["_id"], s):
         raise HTTPException(404, "Sticker not found")
+    # One model per sticker: asking again returns the existing job, so a double tap never spends credits twice.
+    # A failed or cancelled job doesn't count, so "try again" works.
+    existing = await db().meshes.find_one(
+        {"owner_id": user["_id"], "sticker_id": s["_id"], "status": {"$nin": ["FAILED", "CANCELED"]}},
+        sort=[("created_at", -1)])
+    if existing:
+        return mesh_out(await _advance(existing))
     client = _client()
     await _check_quota(user)
     try:

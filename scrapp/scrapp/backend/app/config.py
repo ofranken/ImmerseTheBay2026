@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     meshy_ai_model: str = "meshy-6-lite"
     # PBR adds metallic/roughness/normal maps: bigger GLBs for a phone WebView, little visible gain here.
     meshy_enable_pbr: bool = False
+    # Triangles per model. Phones render several models in a collage; Meshy's default 30000 is more than needed.
+    meshy_target_polycount: int = 15000
     # The API is public, and every job spends the owner's credits: cap each user.
     meshy_max_active_per_user: int = 2
     meshy_daily_limit_per_user: int = 10
