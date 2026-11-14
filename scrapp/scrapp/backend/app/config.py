@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     sam3_checkpoint: str = ""
     # Text-prompt score cutoff. 0.15 recovered a clock that 0.4 missed on the real-photo eval.
     sam3_confidence: float = 0.15
+    # With no spoken noun, these concrete nouns are tried as text prompts (SAM 3 cuts whole objects for
+    # them; abstract words like "object" find nothing). Comma separated; ~0.05 s each.
+    sam3_vocab: str = (
+        "laptop,phone,computer mouse,keyboard,monitor,tv,remote control,headphones,camera,bottle,can,cup,mug,"
+        "glass,bowl,plate,book,bag,backpack,suitcase,box,wallet,keys,pen,scissors,toy,stuffed animal,teddy bear,"
+        "plant,flower,food,fruit,banana,apple,orange,pizza,sandwich,cake,drink,sign,painting,clock,lamp,vase,"
+        "shoe,hat,sunglasses,umbrella,person,dog,cat,bird,horse,sheep,cow,zebra,giraffe,elephant,bear,car,"
+        "bicycle,motorcycle,boat,chair,couch,toaster,microwave,ball,skateboard,kite"
+    )
     sam_device: str = "cuda"
     sam_max_side: int = 1536
     stickers_per_capture: int = 4

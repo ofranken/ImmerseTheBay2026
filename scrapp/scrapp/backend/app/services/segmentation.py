@@ -28,6 +28,7 @@ class MaskCandidate:
     bbox: tuple[int, int, int, int]  # x, y, w, h
     area: int
     rank_score: float = 0.0
+    solidity: float = 1.0  # area / convex-hull area: ~1 for a solid object, low for ragged surfaces
 
 
 class Segmenter(Protocol):
@@ -43,7 +44,35 @@ def candidate_from_mask(mask: np.ndarray, quality: float) -> MaskCandidate | Non
         return None
     ys, xs = np.nonzero(mask)
     x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
-    return MaskCandidate(mask=mask, quality=float(quality), bbox=(x0, y0, x1 - x0 + 1, y1 - y0 + 1), area=area)
+    return MaskCandidate(mask=mask, quality=float(quality), bbox=(x0, y0, x1 - x0 + 1, y1 - y0 + 1), area=area,
+                         solidity=mask_solidity(mask))
+
+
+def mask_solidity(mask: np.ndarray) -> float:
+    """Filled-ness of a mask: area over convex-hull area. A tabletop full of holes scores far below a mug."""
+    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return 0.0
+    hull_area = cv2.contourArea(cv2.convexHull(np.vstack(contours)))
+    return min(1.0, float(mask.sum()) / hull_area) if hull_area > 0 else 0.0
+
+
+def refine_mask(mask: np.ndarray) -> np.ndarray:
+    """Clean a cutout: drop stray islands, fill small holes. Keeps genuine large holes (a mug handle)."""
+    m = mask.astype(np.uint8)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(m, 8)
+    if n > 2:
+        areas = stats[1:, cv2.CC_STAT_AREA]
+        keep = 1 + np.nonzero(areas >= 0.05 * areas.max())[0]
+        m = np.isin(labels, keep).astype(np.uint8)
+    inv = (1 - m).astype(np.uint8)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(inv, 4)
+    limit = 0.02 * max(int(m.sum()), 1)
+    border = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+    for i in range(1, n):
+        if i not in border and stats[i, cv2.CC_STAT_AREA] <= limit:
+            m[labels == i] = 1
+    return m.astype(bool)
 
 
 # ------------------------------------------------------------------------------------------- SAM 3
@@ -58,7 +87,8 @@ class Sam3Segmenter:
     Overlaps are deduplicated later by `rank_candidates`. Tap-to-cut uses the same point predictor.
     """
 
-    def __init__(self, checkpoint: str, device: str, confidence: float):
+    def __init__(self, checkpoint: str, device: str, confidence: float, vocab: list[str] | None = None,
+                 vocab_min_score: float = 0.45):
         import torch  # noqa: F401  (imported lazily so the API boots without a GPU stack)
         from sam3.model.sam3_image_processor import Sam3Processor
         from sam3.model_builder import build_sam3_image_model
@@ -76,6 +106,8 @@ class Sam3Segmenter:
         # backbone (built with the extra SAM-style neck by enable_inst_interactivity=True).
         self._predictor.model.backbone = model.backbone
         self._device = device
+        self._vocab = vocab or []
+        self._vocab_min_score = vocab_min_score
         self._lock = threading.Lock()  # one GPU, one request at a time
 
     def _autocast(self):
@@ -85,25 +117,33 @@ class Sam3Segmenter:
 
     def auto_masks(self, image_rgb: np.ndarray, prompt: str | None = None) -> list[MaskCandidate]:
         if prompt and prompt.strip():
-            return self._text_masks(image_rgb, prompt.strip())
-        return self._center_point_masks(image_rgb)
+            return self._text_masks(image_rgb, [prompt.strip()], 0.0)
+        # No noun: everyday-object vocabulary (clean whole-object masks), plus centre taps for anything
+        # the vocabulary doesn't name.
+        return self._text_masks(image_rgb, self._vocab, self._vocab_min_score) + self._center_point_masks(image_rgb)
 
-    def _text_masks(self, image_rgb: np.ndarray, prompt: str) -> list[MaskCandidate]:
+    def _text_masks(self, image_rgb: np.ndarray, prompts: list[str], min_score: float) -> list[MaskCandidate]:
         import torch
         from PIL import Image
 
         out: list[MaskCandidate] = []
+        if not prompts:
+            return out
         with self._lock, torch.inference_mode(), self._autocast():
-            state = self._processor.set_image(Image.fromarray(image_rgb))
-            self._processor.set_text_prompt(prompt=prompt, state=state)
-            masks, scores = state.get("masks"), state.get("scores")
-            if masks is None or len(scores) == 0:
-                return out
-            masks = masks[:, 0].cpu().numpy()  # (N, H, W) bool
-            for m, sc in zip(masks, scores.float().cpu().numpy()):
-                c = candidate_from_mask(m, float(sc))
-                if c:
-                    out.append(c)
+            state = self._processor.set_image(Image.fromarray(image_rgb))  # embed once, prompt many times
+            for text in prompts:
+                self._processor.reset_all_prompts(state)
+                self._processor.set_text_prompt(prompt=text, state=state)
+                masks, scores = state.get("masks"), state.get("scores")
+                if masks is None or len(scores) == 0:
+                    continue
+                masks = masks[:, 0].cpu().numpy()  # (N, H, W) bool
+                for m, sc in zip(masks, scores.float().cpu().numpy()):
+                    if sc < min_score:
+                        continue
+                    c = candidate_from_mask(refine_mask(m), float(sc))
+                    if c:
+                        out.append(c)
         return out
 
     def _center_point_masks(self, image_rgb: np.ndarray) -> list[MaskCandidate]:
@@ -122,7 +162,7 @@ class Sam3Segmenter:
                     multimask_output=True,
                 )
                 for m, sc in zip(masks, scores):
-                    c = candidate_from_mask(m > 0, float(sc))
+                    c = candidate_from_mask(refine_mask(m > 0), float(sc))
                     if c:
                         out.append(c)
         return out
@@ -139,7 +179,7 @@ class Sam3Segmenter:
                 multimask_output=True,
             )
         best = int(np.argmax(scores))
-        return candidate_from_mask(masks[best] > 0, float(scores[best]))
+        return candidate_from_mask(refine_mask(masks[best] > 0), float(scores[best]))
 
 
 # ------------------------------------------------------------------------------- CPU dev fallback
@@ -182,7 +222,8 @@ def get_segmenter() -> Segmenter:
         if _segmenter is None:
             s = get_settings()
             if s.segmenter == "sam3":
-                _segmenter = Sam3Segmenter(s.sam3_checkpoint, s.sam_device, s.sam3_confidence)
+                vocab = [w.strip() for w in s.sam3_vocab.split(",") if w.strip()]
+                _segmenter = Sam3Segmenter(s.sam3_checkpoint, s.sam_device, s.sam3_confidence, vocab)
             elif s.segmenter == "grabcut":
                 _segmenter = GrabCutSegmenter()
             else:
@@ -222,12 +263,17 @@ def rank_candidates(
         borders = (x <= 1) + (y <= 1) + (x + w >= width - 1) + (y + h >= height - 1)
         if borders >= 3 and not named:  # floor, wall, sky
             continue
+        # Ragged masks: a tabletop with holes, a tangle of cable. Small spindly things (legs, bikes) are fine.
+        if not named and (c.solidity < 0.55 or (frac > 0.18 and c.solidity < 0.80)):
+            continue
         ys, xs = np.nonzero(c.mask)
         d = math.hypot(xs.mean() - cx, ys.mean() - cy) / half_diag
         centrality = math.exp(-(d * d) / (2 * 0.35 * 0.35))
         size_score = min(1.0, frac / 0.05) * (1.0 if frac < 0.45 else max(0.0, (0.65 - frac) / 0.2))
         bonus = 0.15 if c.mask[int(cy), int(cx)] else 0.0
-        c.rank_score = 0.55 * centrality + 0.25 * c.quality + 0.20 * size_score + bonus
+        surface_penalty = 0.25 if (frac > 0.40 and not named) else 0.0  # huge masks are usually surfaces
+        c.rank_score = (0.50 * centrality + 0.25 * c.quality + 0.15 * size_score + 0.10 * c.solidity
+                        + bonus - surface_penalty)
         scored.append(c)
 
     scored.sort(key=lambda c: c.rank_score, reverse=True)
