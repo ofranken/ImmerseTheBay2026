@@ -315,7 +315,8 @@ dialog pre { background: var(--paper); border-radius: 14px; padding: 14px; overf
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 
 @media (max-width: 900px) {
-  body { grid-template-columns: 1fr; grid-template-rows: auto 65vh; }
+  /* Phones: the panel and the 3D view share the screen (was auto / 65vh, which left the panel ~100px tall and clipped its content) */
+  body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 40vh; }
   .sidebar { border-right: none; max-height: 80vh; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

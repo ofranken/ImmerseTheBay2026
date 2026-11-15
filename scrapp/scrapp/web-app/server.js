@@ -6,8 +6,8 @@
 import express from 'express';
 import { MongoClient, GridFSBucket, ObjectId } from 'mongodb';
 import fs from 'node:fs/promises';
-import { existsSync, mkdirSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -409,7 +409,26 @@ app.use(async (req, res, next) => {
 });
 app.get('/api/auth/me', (req, res) => res.json({ user: req.user }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+// The page's own files (HTML, CSS, JS) are never cached by browsers or by Cloudflare: Cloudflare rewrites a short max-age on
+// static files to its 4-hour "Browser Cache TTL", which kept an old copy of this studio's CSS/JS alive in people's browsers
+// and paired it with newer HTML (unstyled page, giant icons). `private, no-cache, no-store` stops that, and the URLs below
+// carry a content hash so any copy cached before this fix is bypassed.
+const NO_CACHE = 'private, no-cache, no-store, must-revalidate';
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const BUILD = (() => {
+  const h = createHash('sha1');
+  for (const f of ['index.html', 'style.css', 'app.js', 'headtrack.js']) h.update(readFileSync(path.join(PUBLIC_DIR, f)));
+  return h.digest('hex').slice(0, 10);
+})();
+const versioned = {
+  index: readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+    .replace('href="/style.css"', `href="/style.css?v=${BUILD}"`).replace('src="/app.js"', `src="/app.js?v=${BUILD}"`),
+  app: readFileSync(path.join(PUBLIC_DIR, 'app.js'), 'utf8').replace("'./headtrack.js'", `'./headtrack.js?v=${BUILD}'`),
+};
+const sendText = (res, type, body) => res.set({ 'Content-Type': type, 'Cache-Control': NO_CACHE }).send(body);
+app.get(['/', '/index.html'], (_req, res) => sendText(res, 'text/html; charset=utf-8', versioned.index));
+app.get('/app.js', (_req, res) => sendText(res, 'application/javascript; charset=utf-8', versioned.app));
+app.use(express.static(PUBLIC_DIR, { setHeaders: (res) => res.setHeader('Cache-Control', NO_CACHE) }));
 // Generated models and the images they came from: only the signed-in owner of the task may fetch them
 function ownTaskFile(dir) {
   return (req, res, next) => {
