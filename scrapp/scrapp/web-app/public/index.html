@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meshy 3D Studio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1l7 7-7 7-7-7z' fill='%237c5cff'/></svg>" />
+  <link rel="stylesheet" href="/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside class="sidebar">
+    <header class="brand">
+      <span class="logo">◆</span>
+      <div>
+        <h1>Meshy 3D Studio</h1>
+        <p>JPEG → GLB → three.js</p>
+      </div>
+    </header>
+
+    <div id="keyWarning" class="warning" hidden>
+      <strong>No API key.</strong> Add <code>MESHY_API_KEY</code> to <code>.env</code> and restart the server.
+    </div>
+
+    <form id="genForm">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab on" data-tab="upload">Upload</button>
+        <button type="button" role="tab" class="tab" data-tab="mongo">MongoDB</button>
+      </div>
+
+      <div id="panel-upload">
+        <label id="dropzone" class="dropzone" tabindex="0">
+          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+          <img id="preview" alt="" hidden />
+          <span id="dropText">Drop a JPEG here<br /><small>or click to browse · max 20 MB</small></span>
+        </label>
+
+        <label class="field">
+          <span>Name</span>
+          <input id="name" type="text" placeholder="e.g. Coffee mug" maxlength="80" />
+        </label>
+      </div>
+
+      <div id="panel-mongo" hidden>
+        <div id="mongoWarning" class="warning" hidden>
+          <strong>MongoDB not configured.</strong> Add <code>MONGO_URI</code> to <code>.env</code> and restart.
+        </div>
+        <div class="mongo-bar">
+          <select id="mongoSource" aria-label="Image source"></select>
+          <button type="button" id="mongoRefresh" title="Refresh">↻</button>
+        </div>
+        <div class="mongo-meta">
+          <span id="mongoCount" class="muted"></span>
+          <span>
+            <button type="button" class="link" id="selectNew">Select unconverted</button>
+            <button type="button" class="link" id="selectNone">Clear</button>
+          </span>
+        </div>
+        <ul id="mongoGrid" class="mongo-grid"></ul>
+        <p id="mongoError" class="error" hidden></p>
+        <button type="button" id="mongoMore" class="more" hidden>Load more</button>
+      </div>
+
+      <details class="options">
+        <summary>Generation options</summary>
+        <label class="field">
+          <span>AI model</span>
+          <select id="ai_model">
+            <option value="latest" selected>Latest (best quality)</option>
+            <option value="meshy-6">Meshy 6</option>
+            <option value="meshy-6-lite">Meshy 6 Lite (cheaper)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Target polycount <output id="polyOut">30,000</output></span>
+          <input id="target_polycount" type="range" min="1000" max="100000" step="1000" value="30000" />
+        </label>
+        <label class="field">
+          <span>Topology</span>
+          <select id="topology">
+            <option value="triangle" selected>Triangle (best for three.js)</option>
+            <option value="quad">Quad</option>
+          </select>
+        </label>
+        <label class="check"><input id="should_remesh" type="checkbox" checked /> Remesh (applies polycount &amp; topology)</label>
+        <label class="check"><input id="should_texture" type="checkbox" checked /> Generate textures</label>
+        <label class="check"><input id="enable_pbr" type="checkbox" checked /> PBR maps (metal / rough / normal)</label>
+        <label class="field">
+          <span>Texture prompt <small>(optional)</small></span>
+          <input id="texture_prompt" type="text" maxlength="800" placeholder="e.g. glossy red ceramic" />
+        </label>
+      </details>
+
+      <button id="generateBtn" type="submit" disabled>Generate 3D model</button>
+      <p id="formError" class="error" hidden></p>
+    </form>
+
+    <section class="gallery">
+      <h2>Your models</h2>
+      <ul id="taskList"></ul>
+      <p id="emptyGallery" class="muted">Nothing yet — upload an image to start.</p>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <canvas id="viewer"></canvas>
+
+    <div id="placeholder" class="placeholder">
+      <p>Select or generate a model to view it here.</p>
+    </div>
+
+    <div id="loading" class="loading" hidden><div class="spinner"></div><span>Loading model…</span></div>
+
+    <div id="toolbar" class="toolbar" hidden>
+      <span id="modelTitle" class="title"></span>
+      <button data-action="rotate" class="toggle on" title="Auto-rotate">⟳ Rotate</button>
+      <button data-action="wireframe" class="toggle" title="Wireframe">▦ Wireframe</button>
+      <button data-action="bg" class="toggle" title="Toggle background">◐ Background</button>
+      <button data-action="reset" title="Reset camera">⌖ Reset</button>
+      <a id="downloadBtn" class="btn" download>⬇ GLB</a>
+      <button data-action="snippet" title="three.js code">{ } Code</button>
+    </div>
+
+    <div id="stats" class="stats" hidden></div>
+
+    <dialog id="snippetDialog">
+      <h3>Use this model in three.js</h3>
+      <p class="muted">Copy the GLB into your project (e.g. <code>/public/models/</code>), then:</p>
+      <pre><code id="snippetCode"></code></pre>
+      <div class="dialog-actions">
+        <button id="copySnippet">Copy</button>
+        <button onclick="this.closest('dialog').close()">Close</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
