@@ -1,7 +1,10 @@
+import hmac
+
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.errors import DuplicateKeyError
 
 from ..access import user_public
+from ..config import get_settings
 from ..db import db
 from ..schemas import LoginIn, RegisterIn, TokenOut
 from ..security import create_token, current_user, hash_password, verify_password
@@ -12,6 +15,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenOut)
 async def register(body: RegisterIn):
+    required = get_settings().invite_code.strip()
+    if required and not hmac.compare_digest((body.invite_code or "").strip().lower().encode(), required.lower().encode()):
+        raise HTTPException(403, "Invalid invite code")
     doc = {
         "username": body.username.lower(),
         "email": body.email.lower(),

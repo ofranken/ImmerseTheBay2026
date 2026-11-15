@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "scrapp"
 
+    # Sign-up gate. When set, POST /auth/register must send this code (accounts can use the 3D budget, so a public
+    # URL must not be open to anyone). Empty = open sign-up (local development).
+    invite_code: str = ""
+
     jwt_secret: str = "change-me"
     jwt_ttl_hours: int = 24 * 30
     file_url_ttl_hours: int = 24 * 7

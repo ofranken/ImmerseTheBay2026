@@ -19,13 +19,14 @@ class _AuthScreenState extends State<AuthScreen> {
   final user = TextEditingController();
   final email = TextEditingController();
   final pass = TextEditingController();
+  final invite = TextEditingController();
 
   Future<void> _go() async {
     setState(() => busy = true);
     final app = context.read<AppState>();
     try {
       if (register) {
-        await app.register(user.text.trim(), email.text.trim(), pass.text);
+        await app.register(user.text.trim(), email.text.trim(), pass.text, inviteCode: invite.text);
       } else {
         await app.signIn(user.text.trim(), pass.text);
       }
@@ -65,7 +66,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   TextField(controller: email, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next),
                 ],
                 const SizedBox(height: 12),
-                TextField(controller: pass, decoration: const InputDecoration(labelText: 'Password (8+ characters)'), obscureText: true, onSubmitted: (_) => _go()),
+                TextField(controller: pass, decoration: const InputDecoration(labelText: 'Password (8+ characters)'), obscureText: true, textInputAction: register ? TextInputAction.next : TextInputAction.done, onSubmitted: (_) => register ? null : _go()),
+                if (register) ...[
+                  const SizedBox(height: 12),
+                  TextField(controller: invite, decoration: const InputDecoration(labelText: 'Invite code'), autocorrect: false, onSubmitted: (_) => _go()),
+                ],
                 const SizedBox(height: 20),
                 ScrappButton(label: register ? 'Create account' : 'Sign in', icon: Icons.arrow_forward_rounded, onPressed: _go, busy: busy, expand: true),
                 TextButton(
