@@ -52,6 +52,12 @@ New sign-ups need the invite code from `backend/.env` (`INVITE_CODE`). The demo 
 | Glasses won't connect | Use **Photo** on the Scrap tab (phone camera/gallery): it runs the same pipeline and checks the active hunt |
 | Hunt says too far away | The seeded hunt allows 30 km around Stanford; if you are elsewhere, re-seed with a different `LAT, LNG` or use "Find with phone camera" |
 
+## Sticker maker page (for the demo video)
+
+`https://scrapp.nmagic.dev/supersecret`: drop a photo, click the thing you want (right-click or Shift-click removes a bit) or switch to
+"Or describe it" and type e.g. "red mug", pick the best cut, press Download PNG. The PNG is exactly the app's sticker (same white die-cut edge, see-through
+background). It needs the laptop on, the tunnel up and Mullvad off, like everything else. The page is not linked anywhere and not indexed; the URL is the only gate.
+
 ## What the seed script made
 
 `backend/scripts/seed_demo.py` (idempotent) creates, through the real API and SAM pipeline:

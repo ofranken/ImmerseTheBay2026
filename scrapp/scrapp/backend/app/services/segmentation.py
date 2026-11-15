@@ -192,6 +192,19 @@ class Sam3Segmenter:
                         out.append(c)
         return out
 
+    def masks_for_points(self, image_rgb: np.ndarray, points: list[tuple[int, int, int]]) -> list[MaskCandidate]:
+        """Several clicks -> candidate masks, best first. points = [(x, y, 1 positive | 0 negative)] in image pixels."""
+        import torch
+        from PIL import Image
+
+        coords = np.array([[p[0], p[1]] for p in points], dtype=np.float32)
+        labels = np.array([int(p[2]) for p in points], dtype=np.int32)
+        with self._lock, torch.inference_mode(), self._autocast():
+            self._predictor.set_image(Image.fromarray(image_rgb))
+            masks, scores, _ = self._predictor.predict(point_coords=coords, point_labels=labels, multimask_output=True)
+        out = [candidate_from_mask(refine_mask(m > 0), float(sc)) for m, sc in zip(masks, scores)]
+        return sorted((c for c in out if c), key=lambda c: -c.quality)
+
     def mask_at_point(self, image_rgb: np.ndarray, x: int, y: int) -> MaskCandidate | None:
         """Tap-to-cut. A tap lands on some part of an object, and SAM's point masks favour that part (a cup's handle, a
         keyboard key). So: take SAM's best point mask, then swap it for a whole-object concept mask when one contains the

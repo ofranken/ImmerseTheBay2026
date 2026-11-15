@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .db import ensure_indexes
 from .services.segmentation import get_segmenter
-from .routers import auth, captures, collages, files, hunts, meshes, social, stickers, webapp
+from .routers import auth, captures, collages, files, hunts, meshes, social, stickers, supersecret, webapp
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,7 +31,7 @@ app = FastAPI(title="Scrapp API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 for r in (auth.router, files.router, captures.router, stickers.router, collages.router, collages.public,
-          meshes.router, social.router, hunts.router, webapp.router):
+          meshes.router, social.router, hunts.router, supersecret.router, webapp.router):
     app.include_router(r)
 
 # The same three.js collage renderer the app bundles is served here for public web-viewer links.
