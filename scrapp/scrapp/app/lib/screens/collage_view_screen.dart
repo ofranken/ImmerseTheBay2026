@@ -9,6 +9,7 @@ import '../services/asset_server.dart';
 import '../state/library.dart';
 import '../theme/palette.dart';
 import '../widgets/paper.dart';
+import '../widgets/share_link_sheet.dart';
 
 /// A finished collage in 3D: a slow camera drift, tilt-the-phone parallax, or free orbit (assets/web/viewer_fx.js, mode=view).
 /// The scene is pushed in from here (fresh signed media URLs), so it works for collages that are not published.
@@ -53,7 +54,16 @@ class _CollageViewScreenState extends State<CollageViewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.collage.title.toUpperCase(), overflow: TextOverflow.ellipsis)),
+        appBar: AppBar(
+          title: Text(widget.collage.title.toUpperCase(), overflow: TextOverflow.ellipsis),
+          actions: [
+            IconButton(
+              tooltip: 'Share 3D link',
+              icon: const Icon(Icons.qr_code_2_rounded),
+              onPressed: () => showShareLinkSheet(context, collageId: widget.collage.id, title: widget.collage.title),
+            ),
+          ],
+        ),
         body: PaperBackground(
           child: Stack(children: [
             WebViewWidget(controller: web),

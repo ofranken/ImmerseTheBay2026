@@ -18,6 +18,7 @@ import '../theme/theme.dart';
 import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
 import '../widgets/saved_burst.dart';
+import '../widgets/share_link_sheet.dart';
 import 'collage_view_screen.dart';
 
 /// 3D collage workspace. Rendering and touch manipulation happen in three.js (assets/web/editor.js);
@@ -45,6 +46,7 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
   bool paperBackground = true, stereo = false, saving = false;
   Map<String, dynamic>? background; // scene.background as last reported by the editor (null = default paper)
   final _chunks = <String, List<String?>>{};
+  final _glbChunks = <String, List<String?>>{}; // the AR model rides along with the picture
 
   @override
   void initState() {
@@ -84,6 +86,12 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       case 'export_chunk':
         final list = _chunks.putIfAbsent(m['id'], () => List<String?>.filled((m['total'] as num).toInt(), null));
         list[(m['index'] as num).toInt()] = m['data'] as String;
+      case 'glb_chunk':
+        final list = _glbChunks.putIfAbsent(m['id'], () => List<String?>.filled((m['total'] as num).toInt(), null));
+        list[(m['index'] as num).toInt()] = m['data'] as String;
+      case 'glb_failed':
+        // not fatal: the collage saves anyway, it just gets no "View in AR" button on its link
+        debugPrint('AR model export failed: ${m['message']}');
       case 'export_done':
         await _finishSave(m['id'] as String, Map<String, dynamic>.from(m['scene']));
       case 'error':
@@ -105,8 +113,10 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       return;
     }
     final png = base64Decode(parts.join());
+    final glbParts = _glbChunks.remove(exportId);
+    final glb = (glbParts == null || glbParts.contains(null)) ? null : base64Decode(glbParts.join());
     try {
-      final c = await context.read<Library>().saveCollage(id: collageId, title: title, sceneJson: jsonEncode(scene), png: png);
+      final c = await context.read<Library>().saveCollage(id: collageId, title: title, sceneJson: jsonEncode(scene), png: png, glb: glb);
       collageId = c.id;
       if (mounted) await showSavedBurst(context, png);
       if (mounted) _afterSave(png);
@@ -135,11 +145,10 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.public_rounded),
-            title: const Text('Get a 3D web link'),
-            onTap: () async {
+            title: const Text('Share a 3D link (QR code)'),
+            onTap: () {
               Navigator.pop(ctx);
-              final url = await context.read<Library>().publishCollage(collageId!);
-              await Share.share(url);
+              showShareLinkSheet(context, collageId: collageId!, title: title);
             },
           ),
           ListTile(
@@ -349,6 +358,8 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
         actions: [
           if (collageId != null)
             IconButton(tooltip: 'View in 3D', icon: const Icon(Icons.threed_rotation_rounded), onPressed: _viewIn3d),
+          if (collageId != null)
+            IconButton(tooltip: 'Share 3D link', icon: const Icon(Icons.qr_code_2_rounded), onPressed: () => showShareLinkSheet(context, collageId: collageId!, title: title)),
           IconButton(tooltip: 'Background', icon: const Icon(Icons.wallpaper_rounded), onPressed: _backgroundSheet),
           IconButton(tooltip: 'Filters & export settings', icon: const Icon(Icons.auto_fix_high_rounded), onPressed: _filtersSheet),
           PopupMenuButton<String>(

@@ -12,6 +12,7 @@ Newest priorities first. Move a line to "Done" when it ships.
   - [x] Model-finished notice: a floating message with a "View" button and a buzz, on whatever screen is open. In-app only: polling stops when the app is in the background, so a system notification would need server push (FCM).
 
 ## Next
+- [ ] Try "View in AR" on a real Android phone (Scene Viewer launch, size, orientation) and the tilt feel on a real phone; iOS Quick Look would need USDZ export.
 - [ ] **Friends sharing: check on a device.** Backend (8 HTTP tests) and app state logic (7 Dart tests) are covered. Still to try by hand on two phones/accounts: the Friends tab, the sticker share sheet, sending a 3D model (new button on the 3D preview) and opening it from the inbox.
 - [ ] **Background job system** (reading (b) of the old "Background system" item): a server-side queue/worker so captures,
   sticker cutting and 3D jobs keep running and retry on their own, and the app is told when they finish.
@@ -34,6 +35,14 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] **Collages in 3D** (public link and in the app): the viewer opens in **Drift** (slow eased orbit and dolly), switches to **Free** the moment you drag, and **Tilt**
+  gives window parallax from phone motion (iOS asks permission via a "Tilt to look around" button) or the mouse; stickers get soft depth shadows and the camera
+  fits narrow phone screens. In the app: **View in 3D** on each Studio collage card and in the editor toolbar (`CollageViewScreen`).
+- [x] **One-tap share link**: "Link" on a Studio card, in the editor toolbar and in the 3D view opens a sheet with the link, a QR code (`/c/<token>/qr.png`), Copy and Share.
+  The public page has Open Graph tags (title and picture) so link previews look right. Browser **View in AR** (Android, Scene Viewer via `model-viewer`): saving a collage in the
+  app now also exports the whole scene as one GLB (about 0.8 m wide) and uploads it as `scene_glb`; the button shows only when that exists and the device can do AR.
+  GLB validated with the Khronos validator (0 errors, 0 warnings). Not yet tried on a real phone: launching Scene Viewer. Existing collages get the AR button the next time
+  they are saved from the app (the two Demo collages already have it). iPhones get drift/tilt but no AR button (Quick Look needs a USDZ file).
 - [x] **Sticker maker page at `/supersecret`** (for the demo video): upload or drop a photo, click the object (right-click or Shift to remove a bit) or describe it ("red mug"), pick among the cuts, add more objects, download a PNG. No login: the URL is the gate, so it is rate limited per IP (uploads 10 per 5 min, cuts 60 per min, downloads 40 per min), capped at 12 MB / 50 MP per photo, keeps at most 6 photos in memory for an hour, and runs one GPU job at a time on the app's already-loaded SAM 3 (no second model). The exported PNG is made by the same `make_sticker` call as the app's stickers and is byte-identical to the app's sticker for the same photo and cut (verified through the public URL). Code: `backend/app/routers/supersecret.py`, `backend/app/static/supersecret.html`, tests in `backend/tests/test_supersecret.py`.
 - [x] Demo content seeded (`backend/scripts/seed_demo.py`, idempotent) and the demo script written (`docs/DEMO.md`): both accounts have starred real-object stickers, a published collage with a rendered thumbnail and a finished 3D model; `Screen Hunt (demo)` (3 flat textured pictures shown full-screen from `docs/demo_assets/hunt-targets.html`, no printing) is shared 11111111 -> 22222222 and matched on all 15 simulated screen photos (glare, moire, dim, far; 187-478 SIFT inliers). Still to do: one real run-through with the glasses and a real screen.
 - [x] Hunts: optional DINOv2-small appearance matcher as a fallback when SIFT misses; collage backgrounds (colour, paper, gradient, photo) in the editor, exports and the public viewer.

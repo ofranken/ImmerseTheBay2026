@@ -110,11 +110,13 @@ class Library extends ChangeNotifier {
 
   Future<Collage> collage(String id) async => Collage(Map<String, dynamic>.from(await api.get('/collages/$id')));
 
-  Future<Collage> saveCollage({String? id, required String title, required String sceneJson, required Uint8List png}) async {
+  /// [glb] is the whole collage as one glTF binary for "View in AR" on the public link. Optional: a save without it still works.
+  Future<Collage> saveCollage({String? id, required String title, required String sceneJson, required Uint8List png, Uint8List? glb}) async {
     final r = await api.upload(id == null ? '/collages' : '/collages/$id',
         method: id == null ? 'POST' : 'PUT',
         fileField: 'thumbnail', bytes: png, filename: 'collage.png', mime: 'image/png',
-        fields: {'title': title, 'scene': sceneJson});
+        fields: {'title': title, 'scene': sceneJson},
+        extraFiles: {if (glb != null) 'scene_glb': (bytes: glb, filename: 'collage.glb', mime: 'model/gltf-binary')});
     final c = Collage(Map<String, dynamic>.from(r));
     collages.removeWhere((x) => x.id == c.id);
     collages.insert(0, c);

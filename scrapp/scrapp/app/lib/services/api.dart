@@ -55,6 +55,7 @@ class ApiClient {
     String filename = 'image.jpg',
     String mime = 'image/jpeg',
     Map<String, String> fields = const {},
+    Map<String, ({Uint8List bytes, String filename, String mime})> extraFiles = const {},
   }) async {
     final req = http.MultipartRequest(method, _u(path))
       ..headers.addAll(_h)
@@ -65,7 +66,10 @@ class ApiClient {
     } else if (bytes != null) {
       req.files.add(http.MultipartFile.fromBytes(fileField, bytes, contentType: type, filename: filename));
     }
-    final streamed = await req.send().timeout(const Duration(seconds: 120));
+    for (final e in extraFiles.entries) {
+      req.files.add(http.MultipartFile.fromBytes(e.key, e.value.bytes, contentType: MediaType.parse(e.value.mime), filename: e.value.filename));
+    }
+    final streamed = await req.send().timeout(const Duration(seconds: 180));
     return _decode(await http.Response.fromStream(streamed));
   }
 }

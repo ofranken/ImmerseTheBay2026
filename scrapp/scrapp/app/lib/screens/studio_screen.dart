@@ -10,6 +10,7 @@ import '../theme/palette.dart';
 import '../theme/theme.dart';
 import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
+import '../widgets/share_link_sheet.dart';
 import '../widgets/share_dialog.dart';
 import 'collage_editor_screen.dart';
 import 'collage_view_screen.dart';
@@ -71,6 +72,26 @@ class _StudioScreenState extends State<StudioScreen> {
                       borderRadius: BorderRadius.circular(12),
                       child: c.thumbnailUrl == null ? Container(color: Palette.paper) : Image.network(c.thumbnailUrl!, fit: BoxFit.cover, width: double.infinity),
                     )),
+                    Positioned(
+                      right: 4,
+                      top: 38,
+                      child: Material(
+                        color: Palette.card.withValues(alpha: 0.92),
+                        shape: const StadiumBorder(),
+                        child: InkWell(
+                          customBorder: const StadiumBorder(),
+                          onTap: () => showShareLinkSheet(context, collageId: c.id, title: c.title),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.qr_code_2_rounded, size: 18, color: Palette.ink),
+                              SizedBox(width: 4),
+                              Text('Link', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Palette.ink)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
                     Positioned(
                       right: 4,
                       top: 4,

@@ -31,7 +31,7 @@ New sign-ups need the invite code from `backend/.env` (`INVITE_CODE`). The demo 
    **See it in AR** to drop it on a table.
 3. **3D (1 min).** Open the **teddy bear** sticker, **View the 3D model** (already built; making a new one takes about 45 seconds and 15 Meshy credits).
    Orbit it. In **Studio, 3D**, grow something new from text if you want a live wait; a "ready in 3D" message appears when it finishes.
-4. **Collage (1 min).** **Studio, Collages, Demo collage**: stickers and the 3D bear in one scene. Change the **Background**, save, then open its
+4. **Collage (1 min).** **Studio, Collages, Demo collage** (tap **3D** on its card for the cinematic 3D view, drag or tilt the phone; **Link** shows a QR code that opens the same view in a browser, with **View in AR** on Android): stickers and the 3D bear in one scene. Change the **Background**, save, then open its
    public link on a laptop (a link is shown on the Share action; also `backend/scripts/seed_demo.py` prints them).
 5. **Friends (30 s).** On the second phone (`22222222`) open **Friends**: the hunt and a shared item are in the inbox. Send the bear model to
    the other account from the 3D preview's send button.
