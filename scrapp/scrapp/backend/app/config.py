@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # URL must not be open to anyone). Empty = open sign-up (local development).
     invite_code: str = ""
 
+    # Tap-to-cut prefers the whole object over the tapped part (see Sam3Segmenter.mask_at_point). Measured on the COCO eval
+    # set it lifts the hit rate from 59% to 76% (dev) / 82% (holdout), but it runs the whole-object vocabulary on every tap
+    # (+7-8 s with the 70-noun vocabulary). Off until a faster variant is validated; set TAP_WHOLE_OBJECT=1 to try it.
+    tap_whole_object: bool = False
+
     jwt_secret: str = "change-me"
     jwt_ttl_hours: int = 24 * 30
     file_url_ttl_hours: int = 24 * 7

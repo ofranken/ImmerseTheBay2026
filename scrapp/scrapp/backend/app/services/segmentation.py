@@ -209,8 +209,8 @@ class Sam3Segmenter:
             )
         best = int(np.argmax(scores))
         base = candidate_from_mask(refine_mask(masks[best] > 0), float(scores[best]))
-        if base is None:
-            return None
+        if base is None or not get_settings().tap_whole_object:
+            return base
         try:
             concepts = self.auto_masks(image_rgb, None)  # takes the lock itself; the point pass above has released it
         except Exception:  # noqa: BLE001 - the plain point mask is always an acceptable answer

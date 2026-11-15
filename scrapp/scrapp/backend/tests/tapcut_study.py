@@ -119,6 +119,46 @@ def main_concepts():
         print(f"{name:36s} {dh:8.3f} {di:8.3f} {hh:9.3f} {hi:9.3f}")
 
 
+def main_fast():
+    """Latency/accuracy trade-off: concept candidates from only the first N vocabulary nouns (each noun costs ~0.1 s)."""
+    import time
+    from app.services.segmentation import choose_whole_object
+    s = get_settings()
+    seg = get_segmenter()
+    rows = {k: {"dev": [], "holdout": []} for k in ("before", "centers only", "N=12+centers", "N=24+centers", "N=36+centers")}
+    secs = {k: [] for k in rows}
+    for item in load_manifest():
+        rgb = cv2.cvtColor(cv2.imread(f"tests/data/images/{item['file']}"), cv2.COLOR_BGR2RGB)
+        h, w = rgb.shape[:2]
+        gt = gt_mask(item)
+        small, scale = resize_for_model(rgb, s.sam_max_side)
+        px, py = interior_point(gt)
+        x, y = int(px * scale), int(py * scale)
+        with seg._lock, torch.inference_mode(), seg._autocast():
+            seg._predictor.set_image(Image.fromarray(small))
+            masks, scores, _ = seg._predictor.predict(point_coords=np.array([[x, y]], dtype=np.float32),
+                                                      point_labels=np.array([1], dtype=np.int32), multimask_output=True)
+        from app.services.segmentation import candidate_from_mask
+        b = int(np.argmax(scores))
+        base = candidate_from_mask(refine_mask(masks[b] > 0), float(scores[b]))
+        t = time.perf_counter(); cc = seg._center_point_masks(small); tc = time.perf_counter() - t
+        t = time.perf_counter(); c12 = seg._text_masks(small, seg._vocab[:12], seg._vocab_min_score); t12 = time.perf_counter() - t
+        t = time.perf_counter(); c24 = seg._text_masks(small, seg._vocab[12:24], seg._vocab_min_score); t24 = time.perf_counter() - t
+        t = time.perf_counter(); c36 = seg._text_masks(small, seg._vocab[24:36], seg._vocab_min_score); t36 = time.perf_counter() - t
+        picks = {"before": base, "centers only": choose_whole_object(base, cc, x, y),
+                 "N=12+centers": choose_whole_object(base, cc + c12, x, y),
+                 "N=24+centers": choose_whole_object(base, cc + c12 + c24, x, y),
+                 "N=36+centers": choose_whole_object(base, cc + c12 + c24 + c36, x, y)}
+        for k, v in picks.items():
+            rows[k][item["split"]].append(iou(upscale_mask(v.mask, h, w), gt))
+        secs["centers only"].append(tc); secs["N=12+centers"].append(tc + t12); secs["N=24+centers"].append(tc + t12 + t24); secs["N=36+centers"].append(tc + t12 + t24 + t36)
+    print(f"{'variant':16s} {'dev hit':>8s} {'dev iou':>8s} {'hold hit':>9s} {'hold iou':>9s} {'extra secs':>10s}")
+    for k, d in rows.items():
+        f = lambda v: (sum(q >= 0.5 for q in v) / len(v), statistics.fmean(v))
+        (dh, di), (hh, hi) = f(d["dev"]), f(d["holdout"])
+        print(f"{k:16s} {dh:8.3f} {di:8.3f} {hh:9.3f} {hi:9.3f} {statistics.median(secs[k]) if secs[k] else 0:10.2f}")
+
+
 def main():
     s = get_settings()
     seg = get_segmenter()
@@ -152,4 +192,4 @@ def main():
 
 if __name__ == "__main__":
     import sys
-    main_concepts() if "--concepts" in sys.argv else main()
+    main_fast() if "--fast" in sys.argv else main_concepts() if "--concepts" in sys.argv else main()
