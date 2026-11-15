@@ -10,9 +10,12 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createViewerFx } from './viewer_fx.js';
 
 const params = new URLSearchParams(location.search);
-const MODE = params.get('mode') || 'edit';
+// /c/<token> (the public viewer page) injects window.__SCRAPP_VIEW = { src, token, ar }; the app passes ?mode=view and pushes the scene in.
+const VIEW = window.__SCRAPP_VIEW || null;
+const MODE = params.get('mode') || (VIEW ? 'view' : 'edit');
 const PAPER = 0xF1E7D3, INK = 0x5C3A26, TEAL = 0x96C1C5, SAGE = 0x7E8F62, RED = 0xC2564B;
 
 const ZONE_PRESETS = {
@@ -568,7 +571,7 @@ const api = {
           return rebuildComposer();
         case 'setBackground': return applyBackground(c.background || null);
         case 'export': return await exportCollage(c);
-        case 'load': return await loadScene(c.scene);
+        case 'load': return MODE === 'view' ? await showCollage({ title: c.title, scene: c.scene, has_ar: c.has_ar }) : await loadScene(c.scene);
         case 'getScene': return post({ type: 'scene', scene: sceneJson() });
         default: post({ type: 'error', message: `unknown command ${c.cmd}` });
       }
@@ -581,22 +584,36 @@ const api = {
 window.ScrappEditor = api;
 
 // --------------------------------------------------------------------- viewer / model modes
+let viewerFx = null;
+
+// Show a collage in the viewer: scene in, outlines off, then the drift / tilt / free camera takes over.
+async function showCollage(data) {
+  document.getElementById('title').textContent = data.title || 'Scrapp collage';
+  document.getElementById('title').style.display = 'block';
+  document.getElementById('brand').style.display = 'block';
+  await loadScene(data.scene);
+  for (const it of items.values()) it.outline.visible = false;
+  try {
+    if (!viewerFx) viewerFx = createViewerFx({ camera, controls, renderer, items, zone });
+    else viewerFx.refreshShadows();
+    viewerFx.start();
+  } catch (err) {
+    controls.autoRotate = true;       // the effects are a bonus: never lose the plain viewer
+    post({ type: 'error', message: `viewer effects off: ${err}` });
+  }
+  post({ type: 'viewer_ready', ar: !!data.has_ar });
+}
+
 async function startViewer() {
   zone.visible = false;
   updateZone();
   grid.visible = false;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 1.2;
-  const src = params.get('src');
+  const src = params.get('src') || VIEW?.src;
+  if (!src) return;                  // in the app: Flutter sends {cmd:'load', scene, title} once it is ready
   try {
     const res = await fetch(src);
     if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    document.getElementById('title').textContent = data.title || 'Scrapp collage';
-    document.getElementById('title').style.display = 'block';
-    document.getElementById('brand').style.display = 'block';
-    await loadScene(data.scene);
-    for (const it of items.values()) it.outline.visible = false;
+    await showCollage(await res.json());
   } catch (err) {
     const m = document.getElementById('msg');
     m.textContent = 'This collage could not be loaded.';
@@ -650,7 +667,8 @@ window.addEventListener('resize', () => {
   composer?.setSize(window.innerWidth, window.innerHeight);
 });
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((now) => {
+  viewerFx?.tick(now);
   controls.update();
   for (const it of items.values()) if (it.outline.visible) it.outline.update();
   if (composer) composer.render(); else renderer.render(scene, camera);

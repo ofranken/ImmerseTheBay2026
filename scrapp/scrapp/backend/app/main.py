@@ -36,8 +36,18 @@ for r in (auth.router, files.router, captures.router, stickers.router, collages.
 
 # The same three.js collage renderer the app bundles is served here for public web-viewer links.
 WEB_DIR = Path(os.getenv("WEB_ASSETS_DIR", Path(__file__).resolve().parents[2] / "app" / "assets" / "web"))
+class RevalidatingStatic(StaticFiles):
+    """The viewer's JS/HTML change with every release; without this Cloudflare serves a 4-hour-old copy. no-cache means
+    "ask the server first" (a cheap 304 via the ETag), not "never cache"."""
+
+    def file_response(self, *args, **kwargs):
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 if WEB_DIR.exists():
-    app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
+    app.mount("/web", RevalidatingStatic(directory=WEB_DIR), name="web")
 
 
 @app.get("/health")

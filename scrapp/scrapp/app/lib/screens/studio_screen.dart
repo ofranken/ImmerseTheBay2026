@@ -12,6 +12,7 @@ import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
 import '../widgets/share_dialog.dart';
 import 'collage_editor_screen.dart';
+import 'collage_view_screen.dart';
 
 /// Collages (paper) and 3D generation (fuzz).
 class StudioScreen extends StatefulWidget {
@@ -65,10 +66,32 @@ class _StudioScreenState extends State<StudioScreen> {
                 padding: const EdgeInsets.all(8),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CollageEditorScreen(collage: c))),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: c.thumbnailUrl == null ? Container(color: Palette.paper) : Image.network(c.thumbnailUrl!, fit: BoxFit.cover, width: double.infinity),
-                  )),
+                  Expanded(child: Stack(children: [
+                    Positioned.fill(child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: c.thumbnailUrl == null ? Container(color: Palette.paper) : Image.network(c.thumbnailUrl!, fit: BoxFit.cover, width: double.infinity),
+                    )),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Material(
+                        color: Palette.card.withValues(alpha: 0.92),
+                        shape: const StadiumBorder(),
+                        child: InkWell(
+                          customBorder: const StadiumBorder(),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CollageViewScreen(collage: c))),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.threed_rotation_rounded, size: 18, color: Palette.ink),
+                              SizedBox(width: 4),
+                              Text('3D', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Palette.ink)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ])),
                   const SizedBox(height: 6),
                   Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
                 ]),

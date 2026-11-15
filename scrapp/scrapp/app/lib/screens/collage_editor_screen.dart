@@ -18,6 +18,7 @@ import '../theme/theme.dart';
 import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
 import '../widgets/saved_burst.dart';
+import 'collage_view_screen.dart';
 
 /// 3D collage workspace. Rendering and touch manipulation happen in three.js (assets/web/editor.js);
 /// this screen is the paper toolbar around it and the bridge to the backend.
@@ -152,6 +153,14 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
         ]),
       ),
     );
+  }
+
+  /// The saved version (what "View in 3D" shows is what was last saved, not unsaved edits).
+  void _viewIn3d() {
+    final lib = context.read<Library>();
+    final c = lib.collages.where((x) => x.id == collageId).firstOrNull ?? widget.collage;
+    if (c == null) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CollageViewScreen(collage: c)));
   }
 
   Future<void> _sendToFriends() async {
@@ -338,6 +347,8 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       appBar: AppBar(
         title: GestureDetector(onTap: _rename, child: Text(title.toUpperCase(), overflow: TextOverflow.ellipsis)),
         actions: [
+          if (collageId != null)
+            IconButton(tooltip: 'View in 3D', icon: const Icon(Icons.threed_rotation_rounded), onPressed: _viewIn3d),
           IconButton(tooltip: 'Background', icon: const Icon(Icons.wallpaper_rounded), onPressed: _backgroundSheet),
           IconButton(tooltip: 'Filters & export settings', icon: const Icon(Icons.auto_fix_high_rounded), onPressed: _filtersSheet),
           PopupMenuButton<String>(
