@@ -35,6 +35,7 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] **Web studio (Sid's web-app) signs in with Scrapp accounts** (same JWT as the phone app; no shared password), everything per user, sign-in throttled, logout revokes the cookie. Static files are `no-store` with content-hashed URLs: Cloudflare was rewriting their cache header to 4 h, which kept an old studio's CSS/JS alive in browsers (unstyled page). Tunnel routing example in `deploy/cloudflared/ingress.example.yml`. Cut stickers is switched on (`WEBAPP_KEY` / `SCRAPP_WEBAPP_KEY`). Tests: `web-app/test/auth.e2e.mjs`.
 - [x] **Collages in 3D** (public link and in the app): the viewer opens in **Drift** (slow eased orbit and dolly), switches to **Free** the moment you drag, and **Tilt**
   gives window parallax from phone motion (iOS asks permission via a "Tilt to look around" button) or the mouse; stickers get soft depth shadows and the camera
   fits narrow phone screens. In the app: **View in 3D** on each Studio collage card and in the editor toolbar (`CollageViewScreen`).
