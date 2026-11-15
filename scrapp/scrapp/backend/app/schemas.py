@@ -67,6 +67,15 @@ class ShareIn(BaseModel):
     message: str | None = Field(default=None, max_length=280)
 
 
+class SceneBackground(BaseModel):
+    """scene.background: the backdrop behind a collage. Absent = the default paper."""
+    type: Literal["color", "paper", "gradient", "photo"]
+    value: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")        # color
+    colors: list[str] | None = Field(default=None, min_length=2, max_length=4)    # gradient
+    angle: float | None = Field(default=None, ge=0, le=360)                       # gradient, CSS degrees (180 = top to bottom)
+    ref_id: str | None = Field(default=None, max_length=40)                       # photo: one of the owner's captures
+
+
 class CollageIn(BaseModel):
     title: str = "Untitled collage"
     scene: dict  # see docs/ARCHITECTURE.md "Collage scene format"

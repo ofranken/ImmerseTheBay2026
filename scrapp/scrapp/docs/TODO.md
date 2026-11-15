@@ -13,11 +13,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 
 ## Next
 - [ ] **Friends sharing: check on a device.** Backend (8 HTTP tests) and app state logic (7 Dart tests) are covered. Still to try by hand on two phones/accounts: the Friends tab, the sticker share sheet, sending a 3D model (new button on the 3D preview) and opening it from the inbox.
-- [ ] **Background system** (scope to confirm, two readings):
-  - (a) Backgrounds for collages: pick a backdrop or environment behind the 3D collage (colour, paper, photo, sky),
-    saved with the collage and used in exports and the web viewer.
-  - (b) A background job system: a server-side queue/worker so captures, sticker cutting and 3D jobs keep running
-    and retry on their own, and the app is told when they finish.
+- [ ] **Background job system** (reading (b) of the old "Background system" item): a server-side queue/worker so captures,
+  sticker cutting and 3D jobs keep running and retry on their own, and the app is told when they finish.
+  (Collage backdrops, reading (a), shipped: see Done.)
 - [ ] Confirm Meta's Developer Center approval for the "scrapbook that" / "found it" voice commands on real glasses.
 - [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
@@ -34,6 +32,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Collage backgrounds: colour, paper, gradient presets (sky, sunset, mint, night, dawn) or one of your photos, chosen from a Background
+  button in the collage editor, saved in `scene.background`, shown in the editor, in saved PNGs and in the public web viewer.
+  Tests: `backend/tests/test_collage_background.py`, `app/test/collage_background_test.dart`.
 - [x] Friends sharing review: sending a 3D model now works end to end (share button on the preview, opens from the inbox); a repeat
   share updates the friend's existing inbox entry instead of duplicating it; asking an existing friend says "accepted", not
   "Request sent"; unfinished 3D models can't be shared; Accept/open failures now show a message instead of failing silently; a hunt

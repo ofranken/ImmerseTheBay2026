@@ -199,9 +199,18 @@ Media URLs are **signed** (`/files/{id}?t=<jwt>`, 7 days) when a response is bui
   "items": [{ "id": "i1", "kind": "sticker|mesh", "ref_id": "<sticker or mesh id>",
               "position": [x,y,z], "quaternion": [x,y,z,w], "scale": 1.0 }],
   "zone": { "center": [x,y,z], "size": [w,h,d] },
+  "background": { "type": "color", "value": "#3E6B89" },   // optional; absent = the default paper
   "filters": { "pixelate": 0, "motionBlur": 0 },
   "camera": { "position": [x,y,z], "target": [x,y,z] } }
 ```
+
+`background` is the backdrop behind the collage. One of `{type:"color", value:"#rrggbb"}`, `{type:"paper"}`,
+`{type:"gradient", colors:[2-4 "#rrggbb"], angle:0-360}` (CSS degrees, 180 = top to bottom) or `{type:"photo", ref_id:"<your capture id>"}`.
+The server validates and normalises it on save (unknown keys dropped; a photo must be one of the owner's captures) and, like sticker
+and mesh links, attaches a fresh signed `url` for a photo whenever the collage is read, including the public `/c/{token}` viewer
+(so a published collage shows that capture's original photo to anyone with the link). The editor paints it behind the WebGL canvas
+and into saved PNGs; a collage without `background` looks exactly as before. If the photo is later deleted, `url` is null and the
+collage falls back to the default paper.
 
 **Endpoints** (interactive docs at `/docs` when the server runs)
 

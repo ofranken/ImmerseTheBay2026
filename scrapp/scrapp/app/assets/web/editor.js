@@ -318,10 +318,86 @@ function rebuildComposer() {
   composer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// ------------------------------------------------------------------------------- background
+// scene.background = null (today's paper) | {type:'color', value:'#rrggbb'} | {type:'paper'}
+//   | {type:'gradient', colors:['#..','#..'], angle:180} | {type:'photo', ref_id, url}
+// The editor/viewer paint it as the page (CSS) behind the transparent WebGL canvas; exports paint it into the PNG.
+let background = null;
+
+function cssBackground(bg) {
+  switch (bg.type) {
+    case 'color': return { backgroundColor: bg.value, backgroundImage: 'none' };
+    case 'paper': return { backgroundColor: '#F1E7D3', backgroundImage: 'url("textures/paper_grain.png")', backgroundSize: '256px', backgroundRepeat: 'repeat' };
+    case 'gradient': return { backgroundImage: `linear-gradient(${bg.angle ?? 180}deg, ${(bg.colors || ['#F1E7D3', '#F1E7D3']).join(', ')})`, backgroundSize: 'cover' };
+    case 'photo': return bg.url ? { backgroundImage: `url("${bg.url}")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundColor: '#F1E7D3' } : null;
+    default: return null;
+  }
+}
+
+function backgroundForSave() {
+  if (!background) return null;
+  return background.type === 'photo' ? { type: 'photo', ref_id: background.ref_id } : background;  // the signed url is re-made on load
+}
+
+function applyBackground(bg) {
+  background = bg && bg.type && cssBackground(bg) ? bg : null;
+  const s = document.body.style;
+  for (const k of ['backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat']) s[k] = '';  // back to editor.html's paper
+  if (background) Object.assign(s, cssBackground(background));
+  post({ type: 'background', background: backgroundForSave() });
+}
+
+async function paintBackground(ctx, x, y, w, h) {
+  if (!background) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  switch (background.type) {
+    case 'color':
+      ctx.fillStyle = background.value;
+      ctx.fillRect(x, y, w, h);
+      break;
+    case 'paper':
+      ctx.fillStyle = '#F1E7D3';
+      ctx.fillRect(x, y, w, h);
+      try {
+        ctx.fillStyle = ctx.createPattern(await loadImage('textures/paper_grain.png'), 'repeat');
+        ctx.fillRect(x, y, w, h);
+      } catch (_) { /* grain optional */ }
+      break;
+    case 'gradient': {
+      const a = THREE.MathUtils.degToRad(background.angle ?? 180);
+      const dx = Math.sin(a), dy = -Math.cos(a);               // CSS: 0deg points up, 90deg right, 180deg down
+      const len = Math.abs(w * dx) + Math.abs(h * dy);
+      const cx = x + w / 2, cy = y + h / 2;
+      const g = ctx.createLinearGradient(cx - dx * len / 2, cy - dy * len / 2, cx + dx * len / 2, cy + dy * len / 2);
+      const cols = background.colors || ['#F1E7D3', '#F1E7D3'];
+      cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+      break;
+    }
+    case 'photo': {
+      ctx.fillStyle = '#F1E7D3';
+      ctx.fillRect(x, y, w, h);
+      try {
+        const img = await loadImage(background.url, true);   // CORS-enabled load, or the exported canvas would be tainted
+        const k = Math.max(w / img.naturalWidth, h / img.naturalHeight);   // "cover"
+        const iw = img.naturalWidth * k, ih = img.naturalHeight * k;
+        ctx.drawImage(img, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+      } catch (_) { /* leave the paper colour if the photo cannot load */ }
+      break;
+    }
+  }
+  ctx.restore();
+}
+
 // ---------------------------------------------------------------------------------- export
 function sceneJson() {
   return {
     version: 1,
+    ...(background ? { background: backgroundForSave() } : {}),
     items: [...items.values()].map(it => ({
       id: it.id, kind: it.kind, ref_id: it.ref_id, title: it.title,
       position: it.object.position.toArray(),
@@ -346,14 +422,15 @@ function exportCamera(aspect) {
   return cam;
 }
 
-async function loadImage(src) {
+async function loadImage(src, cors = false) {
   const img = new Image();
+  if (cors) img.crossOrigin = 'anonymous';
   img.src = src;
   await img.decode();
   return img;
 }
 
-async function exportCollage({ resolution = 2048, background = 'paper', stereo = false }) {
+async function exportCollage({ resolution = 2048, background: background_opt = 'paper', stereo = false }) {
   const aspect = THREE.MathUtils.clamp(zone.size.x / zone.size.y, 0.4, 2.5);
   const H = aspect >= 1 ? Math.round(resolution / aspect) : resolution;
   const W = aspect >= 1 ? resolution : Math.round(resolution * aspect);
@@ -366,7 +443,9 @@ async function exportCollage({ resolution = 2048, background = 'paper', stereo =
   const prev = { size: renderer.getSize(new THREE.Vector2()), ratio: renderer.getPixelRatio() };
   renderer.setPixelRatio(1);
   renderer.setSize(W, H, false);
-  const opaque = background === 'paper' || filters.motionBlur > 0;
+  // A chosen scene backdrop is always painted into the picture (it is part of the collage), under a transparent render.
+  const hasBackdrop = !!background;
+  const opaque = !hasBackdrop && (background_opt === 'paper' || filters.motionBlur > 0);
   renderer.setClearColor(PAPER, opaque ? 1 : 0);
 
   const out = document.createElement('canvas');
@@ -374,6 +453,7 @@ async function exportCollage({ resolution = 2048, background = 'paper', stereo =
   out.height = H;
   const ctx = out.getContext('2d');
   const eyes = stereo ? [-1, 1] : [0];
+  if (hasBackdrop) for (let e = 0; e < eyes.length; e++) await paintBackground(ctx, e * W, 0, W, H);
   const subframes = filters.motionBlur > 0 ? 10 : 1;
 
   eyes.forEach((eye, e) => {
@@ -402,7 +482,7 @@ async function exportCollage({ resolution = 2048, background = 'paper', stereo =
   });
   ctx.globalAlpha = 1;
 
-  if (background === 'paper') {
+  if (!hasBackdrop && background_opt === 'paper') {
     try {
       const grain = await loadImage('textures/paper_grain.png');
       ctx.fillStyle = ctx.createPattern(grain, 'repeat');
@@ -446,6 +526,7 @@ async function loadScene(data) {
     controls.update();
   }
   if (data.filters) { Object.assign(filters, data.filters); rebuildComposer(); }
+  applyBackground(data.background || null);
   select(null);
   updateZone();
 }
@@ -485,6 +566,7 @@ const api = {
           if (c.pixelate != null) filters.pixelate = c.pixelate;
           if (c.motionBlur != null) filters.motionBlur = c.motionBlur;
           return rebuildComposer();
+        case 'setBackground': return applyBackground(c.background || null);
         case 'export': return await exportCollage(c);
         case 'load': return await loadScene(c.scene);
         case 'getScene': return post({ type: 'scene', scene: sceneJson() });

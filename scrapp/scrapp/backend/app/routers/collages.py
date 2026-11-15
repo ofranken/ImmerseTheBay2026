@@ -1,11 +1,15 @@
 import json
+import re
 import secrets
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
 
 from ..access import collage_out, shared_with
 from ..config import get_settings
 from ..db import db
+from ..schemas import SceneBackground
 from ..security import current_user, file_url
 from ..storage import delete, put_bytes
 from ..util import clean, now, oid
@@ -24,6 +28,30 @@ def _scene(scene: str) -> dict:
     return data
 
 
+async def _check_background(scene: dict, user: dict) -> None:
+    """Validate scene.background in place: normalise it, or drop it when absent. A photo must be one of YOUR captures."""
+    raw = scene.get("background")
+    if raw is None:
+        scene.pop("background", None)
+        return
+    try:
+        bg = SceneBackground.model_validate(raw)
+        if bg.type == "color" and not bg.value:
+            raise ValueError("color needs a value")
+        if bg.type == "gradient" and (not bg.colors or not all(re.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in bg.colors)):
+            raise ValueError("gradient needs 2-4 #rrggbb colors")
+        if bg.type == "photo" and not bg.ref_id:
+            raise ValueError("photo needs ref_id")
+    except (ValueError, ValidationError) as e:
+        raise HTTPException(422, f"Bad background: {e}")
+    if bg.type == "photo":
+        if not ObjectId.is_valid(bg.ref_id) or not await db().captures.find_one({"_id": ObjectId(bg.ref_id), "owner_id": user["_id"]}, {"_id": 1}):
+            raise HTTPException(422, "Background photo not found")
+    keep = {"color": ("value",), "paper": (), "gradient": ("colors", "angle"), "photo": ("ref_id",)}[bg.type]
+    out = {"type": bg.type, **{k: getattr(bg, k) for k in keep if getattr(bg, k) is not None}}
+    scene["background"] = out
+
+
 @router.post("")
 async def create_collage(
     title: str = Form("Untitled collage"),
@@ -31,11 +59,13 @@ async def create_collage(
     thumbnail: UploadFile | None = File(None),
     user=Depends(current_user),
 ):
+    scene_doc = _scene(scene)
+    await _check_background(scene_doc, user)
     thumb_id = None
     if thumbnail is not None:
         thumb_id = await put_bytes(await thumbnail.read(), "collage.png", "image/png", user["_id"], "collage_render")
     doc = {
-        "owner_id": user["_id"], "title": title, "scene": _scene(scene),
+        "owner_id": user["_id"], "title": title, "scene": scene_doc,
         "thumbnail_file_id": thumb_id, "created_at": now(), "updated_at": now(),
     }
     res = await db().collages.insert_one(doc)
@@ -54,7 +84,9 @@ async def update_collage(
     c = await db().collages.find_one({"_id": oid(collage_id), "owner_id": user["_id"]})
     if not c:
         raise HTTPException(404, "Not found")
-    upd = {"title": title, "scene": _scene(scene), "updated_at": now()}
+    scene_doc = _scene(scene)
+    await _check_background(scene_doc, user)
+    upd = {"title": title, "scene": scene_doc, "updated_at": now()}
     if thumbnail is not None:
         await delete(c.get("thumbnail_file_id"))
         upd["thumbnail_file_id"] = await put_bytes(await thumbnail.read(), "collage.png", "image/png", user["_id"], "collage_render")
@@ -85,6 +117,11 @@ async def _resolve_scene_urls(scene: dict) -> dict:
         elif item.get("kind") == "mesh":
             m = await db().meshes.find_one({"_id": oid(ref)}, {"glb_file_id": 1})
             item["url"] = file_url(m.get("glb_file_id")) if m else None
+    bg = scene.get("background")
+    if isinstance(bg, dict) and bg.get("type") == "photo":
+        ref = bg.get("ref_id")
+        cap = await db().captures.find_one({"_id": ObjectId(ref)}, {"original_file_id": 1}) if ref and ObjectId.is_valid(ref) else None
+        bg["url"] = file_url(cap["original_file_id"]) if cap else None  # fresh signed link; none if the photo was deleted
     return scene
 
 

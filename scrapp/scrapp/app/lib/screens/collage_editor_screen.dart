@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../collage_background.dart';
 import '../models.dart';
 import '../services/asset_server.dart';
 import '../state/library.dart';
@@ -41,6 +42,7 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
   double pixelate = 0, motionBlur = 0;
   int resolution = 2048;
   bool paperBackground = true, stereo = false, saving = false;
+  Map<String, dynamic>? background; // scene.background as last reported by the editor (null = default paper)
   final _chunks = <String, List<String?>>{};
 
   @override
@@ -71,6 +73,8 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
         }
       case 'selection':
         setState(() => selectedKind = m['kind'] as String?);
+      case 'background':
+        setState(() => background = m['background'] == null ? null : Map<String, dynamic>.from(m['background']));
       case 'zoneStats':
         setState(() {
           inside = (m['inside'] as num).toInt();
@@ -219,6 +223,70 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
     if (m != null) await _cmd({'cmd': 'addMesh', 'url': m.glbUrl, 'ref_id': m.id, 'title': m.prompt});
   }
 
+  Future<void> _setBackground(Map<String, dynamic>? bg) async {
+    if (!isValidBackground(bg)) return;
+    await _cmd({'cmd': 'setBackground', 'background': bg});
+  }
+
+  void _backgroundSheet() {
+    final captures = context.read<Library>().captures.where((c) => c.originalUrl != null).take(24).toList();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Palette.card,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          child: ListView(padding: const EdgeInsets.all(20), shrinkWrap: true, children: [
+            Text('BACKGROUND', style: ScrappType.display(26)),
+            const SizedBox(height: 4),
+            const Text('Shows behind your collage, in the saved picture and on the web link.', style: TextStyle(color: Palette.inkSoft)),
+            const SizedBox(height: 14),
+            Wrap(spacing: 12, runSpacing: 12, children: [
+              for (final p in backgroundPresets)
+                _BackgroundSwatch(
+                  label: p.label,
+                  selected: sameBackground(background, p.json),
+                  color: p.swatch,
+                  gradient: p.gradient,
+                  onTap: () {
+                    _setBackground(p.json);
+                    Navigator.pop(ctx);
+                  },
+                ),
+            ]),
+            const SectionTitle('One of your photos'),
+            if (captures.isEmpty)
+              const Text('Photos you scrapbook show up here.', style: TextStyle(color: Palette.inkSoft))
+            else
+              SizedBox(
+                height: 84,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: captures.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) {
+                    final c = captures[i];
+                    final on = background?['type'] == 'photo' && background?['ref_id'] == c.id;
+                    return GestureDetector(
+                      onTap: () {
+                        _setBackground(photoBackground(c.id, c.originalUrl));
+                        Navigator.pop(ctx);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: on ? Palette.tealDeep : Colors.transparent, width: 3)),
+                        child: ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(c.originalUrl!, width: 84, height: 78, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 84, color: Palette.paper))),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   void _filtersSheet() {
     showModalBottomSheet(
       context: context,
@@ -270,6 +338,7 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       appBar: AppBar(
         title: GestureDetector(onTap: _rename, child: Text(title.toUpperCase(), overflow: TextOverflow.ellipsis)),
         actions: [
+          IconButton(tooltip: 'Background', icon: const Icon(Icons.wallpaper_rounded), onPressed: _backgroundSheet),
           IconButton(tooltip: 'Filters & export settings', icon: const Icon(Icons.auto_fix_high_rounded), onPressed: _filtersSheet),
           PopupMenuButton<String>(
             tooltip: 'Clear',
@@ -373,4 +442,36 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       ),
     );
   }
+}
+
+class _BackgroundSwatch extends StatelessWidget {
+  const _BackgroundSwatch({required this.label, required this.selected, required this.onTap, this.color, this.gradient});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? color;
+  final List<Color>? gradient;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 68,
+          child: Column(children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: gradient == null ? color : null,
+                gradient: gradient == null ? null : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: gradient!),
+                border: Border.all(color: selected ? Palette.tealDeep : Palette.ink.withValues(alpha: 0.25), width: selected ? 4 : 1.5),
+              ),
+              child: selected ? const Icon(Icons.check_rounded, size: 22) : null,
+            ),
+            const SizedBox(height: 4),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      );
 }
