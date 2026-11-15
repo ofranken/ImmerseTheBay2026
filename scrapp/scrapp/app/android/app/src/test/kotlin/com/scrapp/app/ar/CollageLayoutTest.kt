@@ -9,6 +9,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CollageLayoutTest {
@@ -137,5 +138,80 @@ class CollageLayoutTest {
             val ours = CollageLayout.rotate(floatArrayOf(q.x, q.y, q.z, q.w), floatArrayOf(v.x, v.y, v.z))
             assertEquals(a.x, ours[0], 1e-3f); assertEquals(a.y, ours[1], 1e-3f); assertEquals(a.z, ours[2], 1e-3f)
         }
+    }
+
+    // ------------------------------------------------------------------ real saved scenes (GET /collages, 2026-11-14)
+
+    private fun item(id: String, kind: String, p: List<Double>, q: List<Double>, s: Double) =
+        CollageLayout.Item(id, kind, "u", id, p.map { it.toFloat() }.toFloatArray(), q.map { it.toFloat() }.toFloatArray(), s.toFloat())
+
+    /** 22222222 "Untitled collage" 6af9478d: the one placed on the floor when heights looked wrong. */
+    private val userCollage = listOf(
+        item("thinker", "mesh", listOf(-0.025, 0.105, -0.247), listOf(0.0, 0.0, 0.0, 1.0), 1.807),
+        item("palm", "sticker", listOf(0.242, 0.341, 0.155), listOf(0.0, -0.135, 0.0, 0.991), 1.238),
+        item("map", "sticker", listOf(0.391, 0.626, 0.216), listOf(0.0, -0.496, 0.0, 0.868), 1.0),
+        item("statue", "sticker", listOf(-0.394, 0.307, -0.191), listOf(0.0, 0.352, 0.0, 0.936), 1.0),
+    )
+
+    /** 11111111 "Demo collage" 6af9316a. */
+    private val demoCollage = listOf(
+        item("cake", "sticker", listOf(-0.55, 0.9, 0.05), listOf(0.0, 0.0, 0.0, 1.0), 1.0),
+        item("teddy", "sticker", listOf(0.45, 1.0, 0.05), listOf(0.0, 0.0, 0.0, 1.0), 1.0),
+        item("clock", "sticker", listOf(-0.35, 0.35, 0.05), listOf(0.0, 0.0, 0.0, 1.0), 1.0),
+        item("banana", "sticker", listOf(0.5, 0.4, 0.05), listOf(0.0, 0.0, 0.0, 1.0), 1.0),
+        item("model", "mesh", listOf(0.0, 0.1, 0.2), listOf(0.0, 0.0, 0.0, 1.0), 1.4),
+    )
+
+    /**
+     * Every item keeps its editor position relative to every other item (same scale on all three axes, y included), and
+     * only the collage's single lowest point touches the surface.
+     */
+    private fun assertKeepsEditorLayout(items: List<CollageLayout.Item>) {
+        val aspects = items.filter { !it.isMesh }.associate { it.id to 1f }
+        val fit = CollageLayout.fit(items, aspects, CollageLayout.Surface.FLOOR)!!
+        val placed = items.associate { it.id to CollageLayout.placed(it, fit) }
+        for (a in items) for (b in items) for (axis in 0..2) {
+            val editor = (a.position[axis] - b.position[axis]) * fit.metresPerUnit
+            val ar = placed.getValue(a.id)[axis] - placed.getValue(b.id)[axis]
+            assertEquals("${a.id}-${b.id} axis $axis", editor, ar, 1e-5f)
+        }
+        val bottoms = items.map { (CollageLayout.worldBox(it, aspects[it.id]).min[1] - fit.pivot[1]) * fit.metresPerUnit }
+        assertEquals(0f, bottoms.min(), 1e-5f) // the collage as a whole is grounded, not each item
+        assertEquals(1, bottoms.count { it < 1e-4f })
+    }
+
+    @Test fun userCollageKeepsRelativeHeights() {
+        assertKeepsEditorLayout(userCollage)
+        val fit = CollageLayout.fit(userCollage, userCollage.associate { it.id to 1f }, CollageLayout.Surface.FLOOR)!!
+        val y = userCollage.associate { it.id to CollageLayout.placed(it, fit)[1] }
+        // In the editor the Thinker (scale 1.807) stands 0.9 tall from y=0.105, so its top is above the map's centre.
+        val thinkerTop = y.getValue("thinker") + CollageLayout.MESH_FIT * 1.807f * fit.metresPerUnit
+        assertTrue(thinkerTop > y.getValue("map"))
+        assertTrue(y.getValue("map") > y.getValue("palm") && y.getValue("palm") > y.getValue("statue"))
+        assertTrue(y.getValue("thinker") > 0f) // its base sits a little above the palm card's bottom edge, as in the editor
+    }
+
+    @Test fun demoCollageKeepsRelativeHeights() = assertKeepsEditorLayout(demoCollage)
+
+    @Test fun meshNormalizationMatchesEditorJs() {
+        // editor.js: k = fit / max(size); root.position = (-(min.x + size.x/2) * k, -min.y * k, -(min.z + size.z/2) * k)
+        val min = floatArrayOf(-0.2f, -0.2f, -0.4f)
+        val max = floatArrayOf(0.4f, 1.0f, 0.0f)
+        val size = FloatArray(3) { max[it] - min[it] }
+        val center = FloatArray(3) { (min[it] + max[it]) / 2 }
+        val half = FloatArray(3) { size[it] / 2 }
+        val (k, off) = CollageLayout.meshNormalization(center, half)
+        val kEditor = 0.5f / size.max()
+        assertEquals(kEditor, k, eps)
+        assertArrayEquals(floatArrayOf(-(min[0] + size[0] / 2) * kEditor, -min[1] * kEditor, -(min[2] + size[2] / 2) * kEditor), off, eps)
+        // The model's lowest point lands exactly on the item's base, its highest at fit.
+        assertEquals(0f, min[1] * k + off[1], eps)
+        assertEquals(0.5f, max[1] * k + off[1], eps)
+    }
+
+    @Test fun meshNormalizationSurvivesEmptyBoxes() {
+        val (k, off) = CollageLayout.meshNormalization(floatArrayOf(0f, 0f, 0f), floatArrayOf(0f, 0f, 0f))
+        assertEquals(1f, k, eps)
+        assertArrayEquals(floatArrayOf(0f, 0f, 0f), off, eps)
     }
 }

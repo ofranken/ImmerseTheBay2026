@@ -407,11 +407,16 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
                                     ImageNode(bitmap = bmp, size = Float3(w, h, 0f), normal = Direction(z = 1f))
                                     ImageNode(bitmap = bmp, size = Float3(w, h, 0f), normal = Direction(z = -1f))
                                 } else if (model != null) {
+                                    // Normalise exactly like editor.js. NOT scaleToUnits/centerOrigin: in SceneView 4.18
+                                    // centerOrigin(0,-1,0) just adds -height to the position (ignoring the box centre), which
+                                    // sank every model one model-height below its stickers.
+                                    val box = model.asset.boundingBox
+                                    val (k, off) = remember(model) { CollageLayout.meshNormalization(box.center, box.halfExtent) }
                                     ModelNode(
                                         modelInstance = model,
                                         autoAnimate = true,
-                                        scaleToUnits = CollageLayout.MESH_FIT,
-                                        centerOrigin = Position(0f, -1f, 0f), // base on the floor, like the editor
+                                        position = Position(off[0], off[1], off[2]),
+                                        scale = Scale(k),
                                     )
                                 }
                             }

@@ -70,6 +70,17 @@ object CollageLayout {
         return if (n < 1e-6f || n.isNaN()) floatArrayOf(0f, 0f, 0f, 1f) else floatArrayOf(q[0] / n, q[1] / n, q[2] / n, q[3] / n)
     }
 
+    /**
+     * The editor's GLB normalisation (editor.js addMesh): uniform scale so the largest side is [fit], then shift so the
+     * model is centred in X/Z and its lowest point sits at y = 0. [center]/[halfExtent] are the model's own bounding box.
+     * Returns (scale, offset) for the model node inside its item node.
+     */
+    fun meshNormalization(center: FloatArray, halfExtent: FloatArray, fit: Float = MESH_FIT): Pair<Float, FloatArray> {
+        val largest = 2 * maxOf(halfExtent[0], halfExtent[1], halfExtent[2])
+        val k = if (largest.isFinite() && largest > 1e-6f) fit / largest else 1f
+        return k to floatArrayOf(-center[0] * k, (halfExtent[1] - center[1]) * k, -center[2] * k)
+    }
+
     /** Local (unrotated, unscaled) box of an item, matching how the editor builds it. */
     fun localBox(item: Item, aspect: Float?): Box = if (item.isMesh) {
         val h = MESH_FIT / 2
