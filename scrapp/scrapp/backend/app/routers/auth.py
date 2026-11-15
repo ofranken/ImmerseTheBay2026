@@ -1,6 +1,6 @@
 import hmac
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pymongo.errors import DuplicateKeyError
 
 from ..access import user_public
@@ -9,8 +9,12 @@ from ..db import db
 from ..schemas import LoginIn, RegisterIn, TokenOut
 from ..security import create_token, current_user, hash_password, verify_password
 from ..util import now
+from .supersecret import RateLimiter, client_ip
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Sign-in attempts per client IP (the studio forwards the visitor's real IP in cf-connecting-ip)
+login_limiter = RateLimiter({"login": (25, 600)})
 
 
 @router.post("/register", response_model=TokenOut)
@@ -34,11 +38,16 @@ async def register(body: RegisterIn):
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(body: LoginIn):
+async def login(body: LoginIn, request: Request):
+    ip = client_ip(request)
+    wait = login_limiter.check(ip, "login")
+    if wait:
+        raise HTTPException(429, f"Too many sign-in attempts. Try again in {wait // 60 + 1} min.", headers={"Retry-After": str(wait)})
     key = body.username_or_email.lower()
     user = await db().users.find_one({"$or": [{"username": key}, {"email": key}]})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Wrong username or password")
+    login_limiter.hits.pop((ip, "login"), None)  # a successful sign-in resets the count
     return {"token": create_token(str(user["_id"])), "user": user_public(user)}
 
 

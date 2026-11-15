@@ -1,0 +1,16 @@
+# Cloudflare tunnel routing for https://scrapp.nmagic.dev (copy to ~/.cloudflared/scrapp.yml and fill in your tunnel id).
+# One hostname, two local servers: the Node web studio (port 3000) and the Scrapp API (port 8000).
+#
+# The studio owns ONLY the paths below. Everything else (/auth, /supersecret, /web/, /c/, /health, /captures, /stickers,
+# /collages, /meshes, /hunts, /webapp, /docs ...) goes to the API, so the API's own routes are never shadowed.
+# If you add a file or route to the studio, add it here too, or it will 404 on the public URL.
+tunnel: <TUNNEL-ID>
+credentials-file: /home/<you>/.cloudflared/<TUNNEL-ID>.json
+
+ingress:
+  - hostname: scrapp.nmagic.dev
+    path: ^/($|login$|login\.html$|api/|models/|models-ml/|inputs/|vendor/|sample/|textures/|healthz$|app\.js$|headtrack\.js$|style\.css$|index\.html$)
+    service: http://localhost:3000
+  - hostname: scrapp.nmagic.dev
+    service: http://localhost:8000
+  - service: http_status:404

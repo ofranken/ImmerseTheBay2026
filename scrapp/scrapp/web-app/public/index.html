@@ -50,10 +50,11 @@
       <span class="wordmark">Scrapp</span>
       <span class="appbar-tag">3D studio</span>
       <span class="appbar-spacer"></span>
-      <label class="acting" title="The web app has no login: pick whose stickers and friends to show, and who owns what you save">
+      <div class="acting" title="You are signed in with your Scrapp account. Everything here is yours (plus what friends sent you).">
         <svg class="ic"><use href="#i-person" /></svg>
-        <select id="actingAs" aria-label="Acting as"></select>
-      </label>
+        <span id="whoami" class="whoami">…</span>
+        <button type="button" id="signOut" class="signout" title="Sign out">Sign out</button>
+      </div>
       <button type="button" class="icon-btn" id="settingsBtn" title="3D generation settings">
         <svg class="ic"><use href="#i-tune" /></svg>
       </button>
@@ -100,7 +101,7 @@
         </div>
 
         <h2 class="section">Recent captures</h2>
-        <div class="seg" id="capScope">
+        <div class="seg" id="capScope" style="display:none">
           <button type="button" data-v="mine" class="on"><svg class="ic sm"><use href="#i-person" /></svg> Mine</button>
           <button type="button" data-v="all"><svg class="ic sm"><use href="#i-grid" /></svg> Everyone</button>
         </div>
@@ -143,7 +144,7 @@
             <div><strong>No models yet</strong><p>Make one in Scrap, or turn a sticker into 3D from the Book.</p></div>
           </div>
           <h2 class="section">In MongoDB</h2>
-          <div class="seg small" id="meshScope">
+          <div class="seg small" id="meshScope" style="display:none">
             <button type="button" data-v="mine" class="on"><svg class="ic sm"><use href="#i-person" /></svg> Mine</button>
             <button type="button" data-v="all"><svg class="ic sm"><use href="#i-grid" /></svg> Everyone</button>
           </div>

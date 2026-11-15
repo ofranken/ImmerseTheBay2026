@@ -2,6 +2,20 @@
 
 Drop in a JPEG → Meshy AI turns it into a textured 3D model → view it in an interactive three.js viewer → download a GLB that drops straight into any three.js project.
 
+## Signing in
+
+The studio uses **Scrapp accounts**: the same username/email and password as the phone app (sign up in the app). Login is proxied
+to the Scrapp API (`SCRAPP_API_URL`, default `http://localhost:8000`) and the resulting JWT is kept in an HttpOnly cookie
+(`scrapp_studio`, 14 days). There is no shared password.
+
+- Everything is per user: captures, stickers, 3D models, collages, tasks and the files behind them. The server derives the user from the
+  session and ignores any `owner`, `me` or `actingAs` the browser sends. Stickers, models and collages friends **shared with you** are
+  readable too.
+- Real Meshy generations (they spend credits) are capped per user per day (`STUDIO_MESHY_DAILY_CAP`, default 10); dummy mode is free.
+- Sign-in attempts are throttled per IP; signing out revokes the cookie on the server.
+- Behind the Cloudflare tunnel the studio's paths must be routed to port 3000: see `deploy/cloudflared/ingress.example.yml`.
+- Test: `BASE=https://scrapp.nmagic.dev node --test test/auth.e2e.mjs` (needs the API, the studio and the `11111111` / `22222222` accounts).
+
 ## Setup
 
 Requires Node 20.6+.

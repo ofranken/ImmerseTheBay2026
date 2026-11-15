@@ -7,6 +7,15 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { HeadTracker, DEFAULT_CALIB, canvasPhysicalRect } from './headtrack.js';
 
 const $ = (id) => document.getElementById(id);
+
+// A 401 from any studio call means the session ended: go back to the login page
+const _fetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const res = await _fetch(...args);
+  const url = String(args[0]?.url || args[0]);
+  if (res.status === 401 && url.startsWith('/api/') && !url.startsWith('/api/auth/')) location.href = '/login';
+  return res;
+};
 const store = {
   get: (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
@@ -550,7 +559,7 @@ $('collageSave').onclick = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title, scene: sc, thumbnail: snapshot(), actingAs: me,
+        title, scene: sc, thumbnail: snapshot(),
         collageId: $('collageUpdate').checked && last ? last.id : undefined,
       }),
     });
@@ -948,7 +957,7 @@ $('copySnippet').onclick = async () => {
 // =====================================================================
 let tasks = [];
 let activeId = null;
-let me = null;          // users._id we're "acting as" (the web app has no login)
+let me = null;          // users._id of the signed-in Scrapp account (set at boot from /api/config)
 let mongoCfg = null;
 const DONE = (t) => t.glb || t.status === 'FAILED' || t.status === 'CANCELED';
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -957,6 +966,7 @@ const icon = (name, cls = '') => `<svg class="ic ${cls}"><use href="#i-${name}" 
 async function api(url, opts) {
   const res = await fetch(url, opts && opts.body && typeof opts.body !== 'string'
     ? { ...opts, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts.body) } : opts);
+  if (res.status === 401) { location.href = '/login'; throw new Error('Please sign in.'); }
   const data = res.status === 204 ? null : await readJson(res);
   if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
   return data;
@@ -1219,7 +1229,7 @@ async function convertPicked(browser) {
   const failures = [];
   for (const docId of ids) {
     try {
-      const data = await api('/api/generate', { method: 'POST', body: { mongo: { source: browser.opts.source, docId }, options, actingAs: me } });
+      const data = await api('/api/generate', { method: 'POST', body: { mongo: { source: browser.opts.source, docId }, options } });
       tasks = tasks.filter((t) => !(t.mongo && t.mongo.source === browser.opts.source && t.mongo.docId === docId));
       tasks.unshift(data);
       browser.picked.delete(docId);
@@ -1322,7 +1332,7 @@ $('genForm').addEventListener('submit', async (e) => {
   try {
     const data = await api('/api/generate', {
       method: 'POST',
-      body: { image: imageDataUri, name: $('name').value.trim() || 'Untitled', options: readOptions(), actingAs: me },
+      body: { image: imageDataUri, name: $('name').value.trim() || 'Untitled', options: readOptions() },
     });
     tasks.unshift(data);
     activeId = data.id;
@@ -1409,7 +1419,7 @@ async function openCutter({ docId, image, name }) {
   $('cutDialog').showModal();
   cutBusy(image ? 'Saving your photo as a capture…' : 'Opening photo…');
   try {
-    const start = await api('/api/cut/start', { method: 'POST', body: { docId, image, name, actingAs: me } });
+    const start = await api('/api/cut/start', { method: 'POST', body: { docId, image, name } });
     cut.captureId = start.captureId;
     if (!$('cutTitle').value) $('cutTitle').value = start.title || '';
     await new Promise((res, rej) => { $('cutImg').onload = res; $('cutImg').onerror = () => rej(new Error('Photo failed to load')); $('cutImg').src = start.image; });
@@ -1751,44 +1761,17 @@ $('addFriendForm').addEventListener('submit', async (e) => {
 });
 
 // =====================================================================
-// "Acting as" (no login in the web app)
+// Account: the studio uses your Scrapp login (same accounts as the phone app)
 // =====================================================================
-async function loadUsers() {
-  const sel = $('actingAs');
-  sel.replaceChildren(new Option('Everyone', ''));
-  if (!mongoCfg?.configured) { sel.disabled = true; return; }
-  try {
-    const users = await api('/api/users');
-    for (const u of users) sel.append(new Option(`@${u.username}`, u.id));
-    const saved = store.get('actingAs', '');
-    me = users.some((u) => u.id === saved) ? saved : (users.length === 1 ? users[0].id : null);
-    sel.value = me || '';
-  } catch (err) {
-    console.warn('users', err);
-  }
-  syncScopes();
+function showAccount(user) {
+  $('whoami').textContent = `@${user.username}`;
+  $('whoami').title = user.display_name || user.username;
 }
-$('actingAs').onchange = (e) => {
-  me = e.target.value || null;
-  store.set('actingAs', me || '');
-  if (me) { capScope = meshScope = bookScope = 'mine'; capSeg.set('mine'); meshSeg.set('mine'); bookScopeSeg.set('mine'); }
-  syncScopes();
-  loaded.clear();
-  loaded.add(tab);
-  refreshTab(tab);
+$('signOut').onclick = async () => {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* going to the login page anyway */ }
+  store.set('tab', 'scrap');
+  location.href = '/login';
 };
-// "Mine" / "From friends" need a user
-function syncScopes() {
-  for (const id of ['capScope', 'bookScope', 'meshScope']) {
-    $(id).querySelectorAll('button').forEach((b) => { if (b.dataset.v !== 'all') b.disabled = !me; });
-  }
-  $('bookStar').querySelector('[data-v="starred"]').disabled = !me;
-  if (!me) {
-    capScope = 'all'; meshScope = 'all'; bookScope = 'mine'; bookStar = 'all';
-    capSeg.set('all'); meshSeg.set('all'); bookScopeSeg.set('mine'); bookStarSeg.set('all');
-    $('bookStar').hidden = false;
-  }
-}
 
 function slug(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'model';
@@ -1800,7 +1783,11 @@ const showSample = () => { activeId = null; renderTasks(); showModel(SAMPLE); };
 
 // boot
 (async () => {
-  const cfg = await fetch('/api/config').then((r) => r.json());
+  const cfgRes = await fetch('/api/config');
+  if (cfgRes.status === 401) { location.href = '/login'; return; }
+  const cfg = await cfgRes.json();
+  me = cfg.user.id;
+  showAccount(cfg.user);
   const dummyBox = $('dummyMode');
   dummyBox.checked = cfg.dummy.forced || store.get('dummyMode', true);
   dummyBox.disabled = cfg.dummy.forced;
@@ -1824,7 +1811,7 @@ const showSample = () => { activeId = null; renderTasks(); showModel(SAMPLE); };
   $('saveCollageBtn').disabled = !mongoCfg.configured;
   tasks = await fetch('/api/tasks').then((r) => r.json());
   renderTasks();
-  await loadUsers();
+  capScope = meshScope = bookScope = 'mine';
   showTab(tab);
   if (!(await restoreScene())) showSample(); // saved scene from last visit, else the sample mug
   poll();
