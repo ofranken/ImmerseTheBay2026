@@ -5,6 +5,9 @@ package com.scrapp.app.glasses
  * ("scrap book that", "scrapple that", even "Scrabble cat"), so matching is fuzzy and
  * tolerant of the word split. Anything after the phrase becomes an optional object prompt:
  * "scrapbook that lamp" -> prompt "lamp" (used by a text-promptable segmenter such as SAM 3).
+ *
+ * "found it" is the scavenger-hunt check-off: it only does anything while a hunt is active (see GlassesManager),
+ * where it takes a photo and checks it against the hunt's remaining finds.
  */
 object VoiceCommandMatcher {
     data class Match(val command: String, val prompt: String?)
@@ -14,7 +17,8 @@ object VoiceCommandMatcher {
         "scrap but", "scrap boo", "scrapbooking", "scrap that",
     )
     private val objectWords = setOf("that", "this", "it", "dat", "cat", "these", "those")
-    private val foundPhrases = listOf("found it", "i found it", "got it")
+    // Hunt check-off. "got it" is left out on purpose: people say it constantly in ordinary conversation.
+    private val foundPhrases = listOf("found it", "i found it", "found one", "i found one")
 
     fun normalize(text: String): String =
         text.lowercase().replace(Regex("[^a-z ]"), " ").replace(Regex("\\s+"), " ").trim()

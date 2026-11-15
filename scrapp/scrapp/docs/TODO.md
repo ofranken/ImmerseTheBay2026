@@ -29,7 +29,6 @@ Newest priorities first. Move a line to "Done" when it ships.
 ## Scavenger hunt (built; hardened, see Done)
 - [ ] Verify on real glasses and ARCore: SIFT matching only suits flat, textured targets (paintings, signs, posters).
   Generic objects (a cup, a plant) need an embedding vote (CLIP/DINO) before they match reliably.
-- [ ] Wire the `found it` voice command (matcher exists in `VoiceCommandMatcher.kt`, nothing consumes it) or remove it.
 - [ ] Hunt map view, per-item radius/title editing, leaderboard.
 
 ## Security and housekeeping
@@ -41,6 +40,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] "Found it" voice command: during a hunt it takes a photo and checks it against the remaining finds (speaks "Checking",
+  then the result). Outside a hunt it does nothing, so ordinary chatter never triggers a photo. "got it" was dropped from the
+  phrases for that reason. Unit-tested in `VoiceCommandMatcherTest`; not yet tried on real glasses.
 - [x] Server no longer freezes while cutting stickers: SAM 3 loads in a worker thread at startup and all image work runs
   off the event loop, one capture at a time (a photo to 4 stickers in about 15 s while `/health` stays instant).
 - [x] API, Cloudflare tunnel and web studio run as systemd user services (`scrapp-api`, `scrapp-tunnel`,

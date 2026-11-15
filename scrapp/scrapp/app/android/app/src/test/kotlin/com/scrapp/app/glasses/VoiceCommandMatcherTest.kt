@@ -13,6 +13,11 @@ class VoiceCommandMatcherTest {
     @Test fun fuzzy() = assertEquals("scrapbook", cmd("crab book that")?.command)
     @Test fun objectPrompt() = assertEquals("lamp", cmd("hey scrapbook this lamp")?.prompt)
     @Test fun huntFound() = assertEquals("found", cmd("I found it")?.command)
+    @Test fun huntFoundInSentence() = assertEquals("found", cmd("oh wow I think I found it")?.command)
+    @Test fun huntFoundOne() = assertEquals("found", cmd("found one")?.command)
+    @Test fun foundCarriesNoPrompt() = assertNull(cmd("found it")?.prompt)
+    @Test fun gotItIsJustChatter() = assertNull(cmd("got it thanks"))
+    @Test fun foundMidSentenceIsChatter() = assertNull(cmd("I found it hard to read"))
     @Test fun ignoresChatter() = assertNull(cmd("what a nice scrapbook"))
     @Test fun ignoresBookTalk() = assertNull(cmd("the book that I read"))
 }

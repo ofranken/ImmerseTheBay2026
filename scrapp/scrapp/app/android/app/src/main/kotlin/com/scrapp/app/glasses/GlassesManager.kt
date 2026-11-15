@@ -285,6 +285,12 @@ object GlassesManager {
     private fun onTranscript(text: String, isFinal: Boolean) {
         emit(mapOf("type" to "transcript", "text" to text, "isFinal" to isFinal))
         val m = VoiceCommandMatcher.match(text) ?: return
+        if (m.command == "found") {
+            // Only meaningful during a hunt; otherwise it is just someone talking, so don't take a photo.
+            if (activeHuntId == null) return
+            trigger(source = "voice", transcript = text, announce = "Checking")
+            return
+        }
         // Partials make the shutter feel instant; the debounce stops the final from firing twice.
         trigger(source = "voice", transcript = text, prompt = m.prompt)
     }
@@ -347,21 +353,21 @@ object GlassesManager {
     }
 
     // ---------------------------------------------------------------------------------- capture
-    fun trigger(source: String, transcript: String? = null, prompt: String? = null) {
+    fun trigger(source: String, transcript: String? = null, prompt: String? = null, announce: String = "Scrapbooking") {
         val now = SystemClock.elapsedRealtime()
         if (now - lastTriggerAt < DEBOUNCE_MS) return
         lastTriggerAt = now
         emit(mapOf("type" to "trigger", "source" to source))
-        scope.launch { capture(source, transcript, prompt) }
+        scope.launch { capture(source, transcript, prompt, announce) }
     }
 
-    private suspend fun capture(source: String, transcript: String?, prompt: String?) = captureMutex.withLock {
+    private suspend fun capture(source: String, transcript: String?, prompt: String?, announce: String) = captureMutex.withLock {
         val s = session
         if (s == null) {
             emitError("Glasses not connected")
             return@withLock
         }
-        speak("Scrapbooking")
+        speak(announce)
         val stream = ensureStreaming(s)
         if (stream == null) {
             speak("Camera not ready")
