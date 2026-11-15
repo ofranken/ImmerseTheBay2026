@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Screen Hunt targets</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e0e10;overflow:hidden;cursor:none}
+  img{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain}
+  #tip{position:fixed;left:0;right:0;bottom:8px;text-align:center;font:14px system-ui;color:#777;opacity:.9;transition:opacity 1.5s}
+</style></head><body>
+<img id="t" alt="hunt target">
+<div id="tip">Click / Space / → next · ← back · F full-screen · turn the screen brightness up, avoid lamps reflecting on it</div>
+<script>
+  const targets = ["poster-bay-bridge.png", "poster-golden-hour.png", "poster-fog-city.png"];
+  let i = 0; const img = document.getElementById("t");
+  const show = () => { img.src = targets[(i + targets.length) % targets.length]; };
+  const go = d => { i += d; show(); };
+  addEventListener("click", () => go(1));
+  addEventListener("keydown", e => {
+    if (e.key === " " || e.key === "ArrowRight") go(1);
+    else if (e.key === "ArrowLeft") go(-1);
+    else if (e.key.toLowerCase() === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+  setTimeout(() => document.getElementById("tip").style.opacity = 0, 5000);
+  show();
+</script></body></html>

@@ -34,7 +34,7 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
-- [x] Demo content seeded (`backend/scripts/seed_demo.py`, idempotent) and the demo script written (`docs/DEMO.md`): both accounts have starred real-object stickers, a published collage with a rendered thumbnail and a finished 3D model; `Poster Hunt (demo)` (3 flat textured posters, print-outs in `docs/demo_assets/`) is shared 11111111 -> 22222222 and was proven by re-photographing each poster at an angle (185, 143, 124 SIFT inliers, 3/3).
+- [x] Demo content seeded (`backend/scripts/seed_demo.py`, idempotent) and the demo script written (`docs/DEMO.md`): both accounts have starred real-object stickers, a published collage with a rendered thumbnail and a finished 3D model; `Screen Hunt (demo)` (3 flat textured pictures shown full-screen from `docs/demo_assets/hunt-targets.html`, no printing) is shared 11111111 -> 22222222 and matched on all 15 simulated screen photos (glare, moire, dim, far; 187-478 SIFT inliers). Still to do: one real run-through with the glasses and a real screen.
 - [x] Hunts: optional DINOv2-small appearance matcher as a fallback when SIFT misses; collage backgrounds (colour, paper, gradient, photo) in the editor, exports and the public viewer.
 - [x] Glasses capture recovery: a timed-out photo (Meta AI link stall, `DAT:HeartbeatMonitor: Heartbeat timeout`) now resets the camera stream and retries once, instead of reusing the dead stream until the app restarts.
 - [x] Collage backgrounds: colour, paper, gradient presets (sky, sunset, mint, night, dawn) or one of your photos, chosen from a Background

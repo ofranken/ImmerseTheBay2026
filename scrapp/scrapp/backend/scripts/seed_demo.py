@@ -11,7 +11,8 @@ What it makes
     and hold them up to the glasses: they are the targets of the seeded hunt
   * one finished 3D model for 11111111 (22222222 keeps the one already there)
   * a published collage per account, with a rendered thumbnail
-  * "Poster Hunt (demo)" owned by 11111111 and shared with 22222222, then proven by re-photographing each poster at an angle
+  * "Screen Hunt (demo)" owned by 11111111 and shared with 22222222; the targets are shown full-screen on a laptop, tablet or
+    phone (docs/demo_assets/hunt-targets.html), then proven by simulated photos of a screen (glare, moire, dim, far)
 """
 from __future__ import annotations
 
@@ -91,6 +92,50 @@ def place(poster: np.ndarray, bg: np.ndarray, quad: np.ndarray, gain=1.0, blur=0
     if blur:
         out = cv2.GaussianBlur(out, (0, 0), blur)
     return out
+
+
+def screen_photo(art: np.ndarray, seed: int, kind: str) -> np.ndarray:
+    """What the glasses see when pointed at the target shown full-screen on a laptop/tablet/phone.
+
+    The art is letterboxed onto a 1920x1200 screen, given an RGB sub-pixel stripe structure (the source of moire when a
+    camera samples it), then photographed at an angle with the glare, dimness or distance of the chosen condition.
+    kind: clean | glare | moire | dim | far
+    """
+    rng = np.random.default_rng(seed)
+    sw, sh = 1920, 1200
+    screen = np.full((sh, sw, 3), 14, np.uint8)
+    scale = min(sw / art.shape[1], sh / art.shape[0])
+    a = cv2.resize(art, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    y0, x0 = (sh - a.shape[0]) // 2, (sw - a.shape[1]) // 2
+    screen[y0:y0 + a.shape[0], x0:x0 + a.shape[1]] = a
+    stripes = np.ones((sh, sw, 3), np.float32) * 0.72  # each pixel column lights mostly one colour channel
+    for ch in range(3):
+        stripes[:, ch::3, ch] = 1.0
+    screen = np.clip(screen.astype(np.float32) * stripes * 1.18, 0, 255).astype(np.uint8)
+    W, H = 1600, 1200
+    room = np.full((H, W, 3), (38, 36, 34), np.uint8)
+    room = np.clip(room.astype(int) + rng.integers(-6, 6, room.shape), 0, 255).astype(np.uint8)
+    f = {"far": 0.42, "moire": 0.5}.get(kind, 0.56)  # screen width as a share of the photo: smaller = more aliasing
+    tilt = {"moire": 70, "far": 45}.get(kind, 40)
+    cx, cy = W / 2 + rng.integers(-40, 40), H / 2 + rng.integers(-30, 30)
+    w2, h2 = W * f / 2 * 1.9, W * f / 2 * 1.19
+    quad = np.float32([[cx - w2, cy - h2 + tilt], [cx + w2, cy - h2 - tilt * 0.6], [cx + w2 * 0.96, cy + h2 + tilt * 0.4], [cx - w2 * 0.96, cy + h2 - tilt]])
+    M = cv2.getPerspectiveTransform(np.float32([[0, 0], [sw, 0], [sw, sh], [0, sh]]), quad)
+    photo = cv2.warpPerspective(screen, M, (W, H), flags=cv2.INTER_LINEAR, borderValue=(38, 36, 34))
+    bezel = cv2.warpPerspective(np.full((sh, sw), 255, np.uint8), M, (W, H)) > 0
+    bezel = cv2.dilate(bezel.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
+    photo[bezel & (photo.sum(axis=2) == 114)] = (20, 20, 22)
+    img = photo.astype(np.float32)
+    if kind in ("glare", "moire"):  # a window or ceiling light reflecting off the glass
+        gx, gy = cx + w2 * 0.35, cy - h2 * 0.35
+        yy, xx = np.mgrid[0:H, 0:W]
+        blob = np.exp(-(((xx - gx) / (w2 * 0.55)) ** 2 + ((yy - gy) / (h2 * 0.35)) ** 2))
+        img += blob[..., None] * (170 if kind == "glare" else 90)
+    if kind == "dim":
+        img *= 0.45
+    img = cv2.GaussianBlur(img, (0, 0), 1.3 if kind in ("dim", "far") else 0.8)
+    img += rng.normal(0, 7 if kind == "dim" else 3, img.shape)
+    return np.clip(img, 0, 255).astype(np.uint8)
 
 
 def jpg(img: np.ndarray) -> bytes:
@@ -270,21 +315,29 @@ def seed_collage(api: Api, public: str):
         log(f"  [{api.user}] thumbnail attached")
 
 
+HUNT_TITLE = "Screen Hunt (demo)"
+OLD_HUNT_TITLES = ("Poster Hunt (demo)",)  # renamed: no printer, the targets are shown on a screen
+
+
 def seed_hunt(owner: Api, friend: Api, posters: list[dict]):
-    title = "Poster Hunt (demo)"
-    if any(h["title"] == title for h in owner.get("/hunts?scope=mine")):
+    for h in owner.get("/hunts?scope=mine"):
+        if h["title"] in OLD_HUNT_TITLES:  # only our own earlier seed; deleting also removes its share and progress
+            owner.c.delete(f"/hunts/{h['id']}", headers=owner.h)
+            log(f"  removed the old hunt '{h['title']}'")
+    if any(h["title"] == HUNT_TITLE for h in owner.get("/hunts?scope=mine")):
         log("  hunt already exists")
         return
-    hints = {"bay-bridge": "Blue-and-gold poster, steel and sky", "golden-hour": "Warm colours, big letters", "fog-city": "Cool greys, hold it steady"}
-    hunt = owner.post("/hunts", json={"title": title, "description": "Find the three Immerse the Bay posters. Point the glasses at each one and say \"found it\".",
+    hints = {"bay-bridge": "Blue and gold art, steel and sky", "golden-hour": "Warm colours, big letters", "fog-city": "Cool greys, hold it steady"}
+    hunt = owner.post("/hunts", json={"title": HUNT_TITLE, "description": "Three pictures are shown full-screen on the presenter's laptop (open docs/demo_assets/hunt-targets.html). "
+                                       "Point the glasses at the screen and say \"found it\".",
                                        "items": [{"sticker_id": p["sticker_id"], "title": p["title"].title(), "hint": hints[p["slug"]], "radius_m": HUNT_RADIUS_M} for p in posters]})
-    owner.post("/shares", json={"to_user_ids": [friend.me["id"]], "kind": "hunt", "item_id": hunt["id"], "message": "Poster hunt for the demo!"})
-    log(f"  hunt {hunt['id'][-6:]} created ({len(posters)} posters, radius {HUNT_RADIUS_M} m) and shared with {friend.user}")
+    owner.post("/shares", json={"to_user_ids": [friend.me["id"]], "kind": "hunt", "item_id": hunt["id"], "message": "Screen hunt for the demo!"})
+    log(f"  hunt {hunt['id'][-6:]} '{HUNT_TITLE}' created ({len(posters)} targets, radius {HUNT_RADIUS_M} m) and shared with {friend.user}")
 
 
 def prove_hunt(owner: Api, friend: Api, posters: list[dict]) -> bool:
-    """Re-photograph each poster at an angle in a different wall, lighting and blur; a throwaway copy of the hunt is used so the
-    real one stays at 0 found."""
+    """Photograph each target on a (simulated) laptop screen with glare, moire, dim light and distance; a throwaway copy of the
+    hunt is used so the real one stays at 0 found. Every condition must match for every target."""
     items = [{"sticker_id": p["sticker_id"], "radius_m": HUNT_RADIUS_M} for p in posters]
     tmp = owner.post("/hunts", json={"title": "zz proof", "items": items})
     owner.post("/shares", json={"to_user_ids": [friend.me["id"]], "kind": "hunt", "item_id": tmp["id"]})
@@ -292,15 +345,26 @@ def prove_hunt(owner: Api, friend: Api, posters: list[dict]) -> bool:
     try:
         for i, p in enumerate(posters):
             art = cv2.imread(str(ASSETS / f"poster-{p['slug']}.png"))
-            quad = np.array([[300 + 40 * i, 240], [880, 190 + 30 * i], [900, 760], [320 + 20 * i, 700 + 30 * i]])
-            shot = place(art, wall(900 + i, (1280, 960)), quad, gain=0.85, blur=1.2)
-            meta = {"lat": LAT, "lng": LNG, "accuracy_m": 15, "trigger": "voice"}
-            r = friend.post(f"/hunts/{tmp['id']}/attempt", files={"image": ("p.jpg", jpg(shot), "image/jpeg")}, data={"meta": json.dumps(meta)})
-            log(f"  re-photo of {p['slug']}: matched={r['matched']} inliers={r.get('inliers')}")
-            ok &= bool(r["matched"])
+            for kind in ("clean", "glare", "moire", "dim", "far"):
+                # each attempt on a fresh copy of the hunt state: the item is only ever checked off once, so re-check
+                # by asking for a match on a per-target hunt
+                one = owner.post("/hunts", json={"title": "zz proof one", "items": [{"sticker_id": p["sticker_id"], "radius_m": HUNT_RADIUS_M}]})
+                owner.post("/shares", json={"to_user_ids": [friend.me["id"]], "kind": "hunt", "item_id": one["id"]})
+                try:
+                    shot = screen_photo(art, 100 * i + len(kind), kind)
+                    if kind == "clean" and i == 0:
+                        cv2.imwrite(str(ASSETS.parent / "demo_assets" / "_screen_photo_sample.jpg"), shot)  # eyeball it; not committed
+                    meta = {"lat": LAT, "lng": LNG, "accuracy_m": 15, "trigger": "voice"}
+                    r = friend.post(f"/hunts/{one['id']}/attempt", files={"image": ("s.jpg", jpg(shot), "image/jpeg")}, data={"meta": json.dumps(meta)})
+                finally:
+                    for c in friend.get("/captures"):
+                        if c.get("hunt_id") == one["id"]:
+                            friend.c.delete(f"/captures/{c['id']}", headers=friend.h)
+                    owner.c.delete(f"/hunts/{one['id']}", headers=owner.h)
+                log(f"  screen photo of {p['slug']:12s} {kind:6s}: matched={r['matched']!s:5s} via {r.get('method', '?'):9s} inliers={r.get('inliers')}")
+                ok &= bool(r["matched"])
         done = friend.get(f"/hunts/{tmp['id']}")
-        log(f"  proof hunt: {done['found_count']}/{done['total']} found, completed={done['completed']}")
-        ok &= done["completed"]
+        log(f"  (throwaway hunt untouched: {done['found_count']}/{done['total']})")
         # the attempts also became captures on the friend's account: remove only those created by this proof
         for c in friend.get("/captures"):
             if c.get("hunt_id") == tmp["id"]:  # only the captures this proof created
@@ -332,7 +396,7 @@ def main():
         seed_collage(api, a.public)
     log("== hunt")
     seed_hunt(one, two, posters)
-    log("== proof: re-photograph each poster as the friend")
+    log("== proof: photograph each target on a screen, as the friend")
     ok = prove_hunt(one, two, posters)
     log("DONE. hunt proof:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
