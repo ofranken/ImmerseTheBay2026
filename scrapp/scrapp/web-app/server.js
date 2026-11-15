@@ -7,6 +7,7 @@ import { MongoClient, GridFSBucket, ObjectId } from 'mongodb';
 import fs from 'node:fs/promises';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -181,6 +182,21 @@ async function loadMongoImage(sourceName, docId) {
 
 // ---------- app ----------
 const app = express();
+
+// Access control. The studio spends Meshy credits and shows every user's photos, so it must never be open on the
+// internet. With STUDIO_PASSWORD set, every request needs it (HTTP Basic, any username). Without it, requests that
+// came through the Cloudflare tunnel (they carry cf-connecting-ip) are refused; localhost still works.
+const STUDIO_PASSWORD = process.env.STUDIO_PASSWORD || '';
+app.use((req, res, next) => {
+  if (!STUDIO_PASSWORD) {
+    if (req.headers['cf-connecting-ip']) return res.status(403).send('Studio is not published: set STUDIO_PASSWORD to enable remote access.');
+    return next();
+  }
+  const given = Buffer.from((req.headers.authorization || '').replace(/^Basic /i, ''), 'base64').toString();
+  const pass = given.slice(given.indexOf(':') + 1);
+  if (given.includes(':') && pass.length === STUDIO_PASSWORD.length && timingSafeEqual(Buffer.from(pass), Buffer.from(STUDIO_PASSWORD))) return next();
+  res.set('WWW-Authenticate', 'Basic realm="Meshy 3D Studio", charset="UTF-8"').status(401).send('Password required');
+});
 app.use(express.json({ limit: '30mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/models', express.static(MODELS_DIR));

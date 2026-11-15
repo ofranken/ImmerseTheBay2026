@@ -29,6 +29,7 @@ def api(monkeypatch):
     dbname = "scrapp_test_" + uuid.uuid4().hex[:8]
     monkeypatch.setenv("MONGO_URI", LOCAL)
     monkeypatch.setenv("MONGO_DB", dbname)
+    monkeypatch.setenv("SCRAPP_SKIP_WARMUP", "1")
     from app import db as dbmod
     from app.config import get_settings
     get_settings.cache_clear()

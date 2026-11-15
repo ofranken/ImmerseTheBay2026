@@ -22,7 +22,6 @@ Newest priorities first. Move a line to "Done" when it ships.
     and retry on their own, and the app is told when they finish.
 - [ ] Move the database to Olivia's MongoDB Atlas (blocked: Atlas Network Access must allow this machine; then set
   `MONGO_URI` in `backend/.env` and recreate the DaGoat account).
-- [ ] Start the server and tunnel automatically (systemd user service) so a reboot doesn't take Scrapp down.
 - [ ] Voice command ("scrapbook that"): glasses mic access is granted; confirm Meta's Developer Center approval.
 - [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
@@ -42,6 +41,12 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Server no longer freezes while cutting stickers: SAM 3 loads in a worker thread at startup and all image work runs
+  off the event loop, one capture at a time (a photo to 4 stickers in about 15 s while `/health` stays instant).
+- [x] API, Cloudflare tunnel and web studio run as systemd user services (`scrapp-api`, `scrapp-tunnel`,
+  `scrapp-studio`; linger is on), so they start at boot and restart if they crash. Mullvad must stay off: it blocks the tunnel.
+- [x] Web studio needs `STUDIO_PASSWORD` (HTTP Basic); without it requests from the internet are refused. The Meshy key
+  was removed from `web-app/.env.example` (it had been committed).
 - [x] Scavenger hunt hardening: completion exposed and stamped once, geofenced phone check-off, owner progress view, full hunt data
   in the share inbox, survives deleted stickers, batch lookups, play screen loads/retries, completion banner, owner delete,
   active hunt persisted across restarts, HTTP tests in `backend/tests/test_hunts.py`.

@@ -24,6 +24,10 @@ from .segmentation import (
 
 log = logging.getLogger("scrapp.pipeline")
 
+# SAM and the image work are CPU/GPU heavy. Everything heavy runs in worker threads so the API keeps answering,
+# and only one capture is processed at a time (one GPU) instead of stacking up.
+_work = asyncio.Semaphore(1)
+
 
 def decode_rgb(data: bytes) -> np.ndarray:
     # IMREAD_COLOR applies EXIF orientation, so phone imports come out upright.
@@ -34,10 +38,10 @@ def decode_rgb(data: bytes) -> np.ndarray:
 
 
 async def _store_sticker(capture: dict, full_rgb: np.ndarray, cand: MaskCandidate, hero: bool, source: str) -> ObjectId:
-    png, crop_box = make_sticker(full_rgb, cand.mask)
+    png, crop_box = await asyncio.to_thread(make_sticker, full_rgb, cand.mask)
     owner = capture["owner_id"]
     image_id = await put_bytes(png, "sticker.png", "image/png", owner, "sticker")
-    mask_id = await put_bytes(mask_png(cand.mask), "mask.png", "image/png", owner, "mask")
+    mask_id = await put_bytes(await asyncio.to_thread(mask_png, cand.mask), "mask.png", "image/png", owner, "mask")
     doc = {
         "owner_id": owner,
         "capture_id": capture["_id"],
@@ -59,23 +63,28 @@ async def _store_sticker(capture: dict, full_rgb: np.ndarray, cand: MaskCandidat
 
 
 async def process_capture(capture_id: ObjectId) -> None:
+    async with _work:
+        await _process_capture(capture_id)
+
+
+async def _process_capture(capture_id: ObjectId) -> None:
     s = get_settings()
     caps = db().captures
     capture = await caps.find_one({"_id": capture_id})
     if not capture:
         return
     try:
-        full_rgb = decode_rgb(await get_bytes(capture["original_file_id"]))
+        full_rgb = await asyncio.to_thread(decode_rgb, await get_bytes(capture["original_file_id"]))
         h, w = full_rgb.shape[:2]
-        small, _ = resize_for_model(full_rgb, s.sam_max_side)
-        seg = get_segmenter()
+        small, _ = await asyncio.to_thread(resize_for_model, full_rgb, s.sam_max_side)
+        seg = await asyncio.to_thread(get_segmenter)  # first call loads SAM 3: never on the event loop
         cands = await asyncio.to_thread(seg.auto_masks, small, capture.get("prompt"))
-        ranked = rank_candidates(cands, small.shape[0], small.shape[1], s.stickers_per_capture,
-                                 named=bool(capture.get("prompt")))
+        ranked = await asyncio.to_thread(rank_candidates, cands, small.shape[0], small.shape[1], s.stickers_per_capture,
+                                         named=bool(capture.get("prompt")))
         sticker_ids = []
         sx, sy = w / small.shape[1], h / small.shape[0]
         for i, c in enumerate(ranked):
-            full_mask = upscale_mask(c.mask, h, w)
+            full_mask = await asyncio.to_thread(upscale_mask, c.mask, h, w)
             x, y, bw, bh = c.bbox
             c_full = MaskCandidate(
                 mask=full_mask,
@@ -103,14 +112,15 @@ async def process_capture(capture_id: ObjectId) -> None:
 async def sticker_at_point(capture: dict, x_norm: float, y_norm: float) -> ObjectId | None:
     """Tap-to-cut: segment whatever is under a tap on the original photo."""
     s = get_settings()
-    full_rgb = decode_rgb(await get_bytes(capture["original_file_id"]))
+    full_rgb = await asyncio.to_thread(decode_rgb, await get_bytes(capture["original_file_id"]))
     h, w = full_rgb.shape[:2]
-    small, scale = resize_for_model(full_rgb, s.sam_max_side)
+    small, scale = await asyncio.to_thread(resize_for_model, full_rgb, s.sam_max_side)
     px, py = int(x_norm * small.shape[1]), int(y_norm * small.shape[0])
-    cand = await asyncio.to_thread(get_segmenter().mask_at_point, small, px, py)
+    seg = await asyncio.to_thread(get_segmenter)
+    cand = await asyncio.to_thread(seg.mask_at_point, small, px, py)
     if cand is None:
         return None
-    full_mask = upscale_mask(cand.mask, h, w)
+    full_mask = await asyncio.to_thread(upscale_mask, cand.mask, h, w)
     x, y, bw, bh = cand.bbox
     inv = 1.0 / scale
     c_full = MaskCandidate(full_mask, cand.quality, (int(x * inv), int(y * inv), int(bw * inv), int(bh * inv)),

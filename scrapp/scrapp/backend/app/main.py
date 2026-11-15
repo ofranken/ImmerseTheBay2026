@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -9,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .db import ensure_indexes
+from .services.segmentation import get_segmenter
 from .routers import auth, captures, collages, files, hunts, meshes, social, stickers
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +20,10 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await ensure_indexes()
+    # Load SAM 3 in the background at startup so the first photo doesn't pay for it (and never blocks the API).
+    if not os.getenv("SCRAPP_SKIP_WARMUP"):  # tests set this: they stub segmentation
+        warm = asyncio.create_task(asyncio.to_thread(get_segmenter))
+        warm.add_done_callback(lambda t: t.exception() and logging.getLogger("scrapp").warning("segmenter warm-up failed: %s", t.exception()))
     yield
 
 
