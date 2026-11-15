@@ -3,8 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Meshy 3D Studio</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 1l7 7-7 7-7-7z' fill='%237c5cff'/></svg>" />
+  <title>Scrapp · 3D Studio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2396C1C5'/><text x='16' y='23' font-family='cursive' font-size='20' text-anchor='middle' fill='%235C3A26'>S</text></svg>" />
+  <link rel="stylesheet" href="/vendor/fontsource/anton/400.css" />
+  <link rel="stylesheet" href="/vendor/fontsource/yellowtail/400.css" />
+  <link rel="stylesheet" href="/vendor/fontsource/nunito/400.css" />
+  <link rel="stylesheet" href="/vendor/fontsource/nunito/700.css" />
+  <link rel="stylesheet" href="/vendor/fontsource/nunito/800.css" />
+  <link rel="stylesheet" href="/vendor/fontsource/nunito/900.css" />
   <link rel="stylesheet" href="/style.css" />
   <script type="importmap">
     {
@@ -16,97 +22,160 @@
   </script>
 </head>
 <body>
-  <aside class="sidebar">
-    <header class="brand">
-      <span class="logo">◆</span>
-      <div>
-        <h1>Meshy 3D Studio</h1>
-        <p>JPEG → GLB → three.js</p>
-      </div>
+  <!-- Icon sprites (Material-style, matching the Scrapp app) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-scrap" viewBox="0 0 24 24"><path fill="currentColor" d="M9.4 10.5l4.77-8.26C13.47 2.09 12.75 2 12 2c-2.4 0-4.6.85-6.32 2.25l3.66 6.35.06-.1zM21.54 9c-.92-2.92-3.15-5.26-6-6.34L11.88 9h9.66zm.26 1h-7.49l.29.5 4.76 8.25C21 16.97 22 14.61 22 12c0-.69-.07-1.35-.2-2zM8.54 12l-3.9-6.75C3.01 7.03 2 9.39 2 12c0 .69.07 1.35.2 2h7.49l-1.15-2zm-6.08 3c.92 2.92 3.15 5.26 6 6.34L12.12 15H2.46zm11.27 0l-3.9 6.76c.7.15 1.42.24 2.17.24 2.4 0 4.6-.85 6.32-2.25l-3.66-6.35-.93 1.6z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path fill="currentColor" d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></symbol>
+    <symbol id="i-studio" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M17 3h2.5A1.5 1.5 0 0 1 21 4.5V7M21 17v2.5a1.5 1.5 0 0 1-1.5 1.5H17M7 21H4.5A1.5 1.5 0 0 1 3 19.5V17"/><path d="M12 6.5l5 2.75v5.5L12 17.5l-5-2.75v-5.5z"/><path d="M7 9.25l5 2.75 5-2.75M12 12v5.5"/></g></symbol>
+    <symbol id="i-friends" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+    <symbol id="i-tune" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path fill="currentColor" d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path fill="currentColor" d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><path fill="currentColor" d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><path fill="currentColor" d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0l-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path fill="currentColor" d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><path fill="currentColor" d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path fill="currentColor" d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></symbol>
+  </svg>
+
+  <aside class="sidebar paper">
+    <header class="appbar">
+      <span class="wordmark">Scrapp</span>
+      <span class="appbar-tag">3D studio</span>
+      <span class="appbar-spacer"></span>
+      <label class="acting" title="The web app has no login: pick whose stickers and friends to show, and who owns what you save">
+        <svg class="ic"><use href="#i-person" /></svg>
+        <select id="actingAs" aria-label="Acting as"></select>
+      </label>
+      <button type="button" class="icon-btn" id="settingsBtn" title="3D generation settings">
+        <svg class="ic"><use href="#i-tune" /></svg>
+      </button>
     </header>
 
-    <div id="keyWarning" class="warning" hidden>
-      <strong>No API key.</strong> Add <code>MESHY_API_KEY</code> to <code>.env</code> and restart the server.
+    <div class="tab-body">
+      <div id="mongoWarning" class="note warn" hidden>
+        <strong>MongoDB isn't connected.</strong> Add <code>MONGO_URI</code> to <code>.env</code> and restart to see your scrapps.
+      </div>
+
+      <!-- ============ SCRAP ============ -->
+      <section class="tab-panel" data-panel="scrap">
+        <form id="genForm" class="card hero">
+          <h2 class="card-title"><svg class="ic"><use href="#i-cube" /></svg> Make it 3D</h2>
+          <div class="pills">
+            <label class="pill toggle-pill" title="Prototype without spending Meshy credits">
+              <input id="dummyMode" type="checkbox" checked />
+              <svg class="ic sm"><use href="#i-sparkle" /></svg> <span>Dummy model</span>
+            </label>
+            <span class="pill sage" id="dbSaveHint"></span>
+          </div>
+          <label id="dropzone" class="dropzone" tabindex="0">
+            <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+            <img id="preview" alt="" hidden />
+            <span id="dropText"><svg class="ic lg"><use href="#i-image" /></svg><br />Drop a photo here<br /><small>or click to browse · JPEG, PNG or WebP</small></span>
+          </label>
+          <input id="name" type="text" placeholder="Name it, e.g. Coffee mug" maxlength="80" aria-label="Name" />
+          <div class="btn-row">
+            <button id="generateBtn" class="btn primary" type="submit" disabled>
+              <svg class="ic"><use href="#i-sparkle" /></svg> <span>Make 3D model</span>
+            </button>
+            <button id="cutUploadBtn" class="btn quiet" type="button" disabled title="Cut stickers out of this photo with SAM 3">
+              <svg class="ic"><use href="#i-cut" /></svg> <span>Cut stickers</span>
+            </button>
+          </div>
+          <p class="muted small" id="dummyHint">Dummy mode returns a sample mug after a few seconds, so nothing is spent.</p>
+          <div id="keyWarning" class="note warn" hidden><strong>No Meshy key.</strong> Add <code>MESHY_API_KEY</code> to <code>.env</code>, or keep Dummy model on.</div>
+          <p id="formError" class="error" hidden></p>
+        </form>
+
+        <div id="progressWrap" hidden>
+          <h2 class="section">In progress</h2>
+          <ul id="progressList" class="list"></ul>
+        </div>
+
+        <h2 class="section">Recent captures</h2>
+        <div class="seg" id="capScope">
+          <button type="button" data-v="mine" class="on"><svg class="ic sm"><use href="#i-person" /></svg> Mine</button>
+          <button type="button" data-v="all"><svg class="ic sm"><use href="#i-grid" /></svg> Everyone</button>
+        </div>
+        <div class="browser" id="capBrowser"></div>
+      </section>
+
+      <!-- ============ BOOK ============ -->
+      <section class="tab-panel" data-panel="book" hidden>
+        <h1 class="display">Sticker book</h1>
+        <div class="seg" id="bookScope">
+          <button type="button" data-v="mine" class="on"><svg class="ic sm"><use href="#i-person" /></svg> Mine</button>
+          <button type="button" data-v="friends"><svg class="ic sm"><use href="#i-gift" /></svg> From friends</button>
+        </div>
+        <div class="seg small" id="bookStar">
+          <button type="button" data-v="starred"><svg class="ic sm"><use href="#i-star" /></svg> Starred</button>
+          <button type="button" data-v="all" class="on"><svg class="ic sm"><use href="#i-grid" /></svg> All</button>
+        </div>
+        <div class="browser" id="bookBrowser"></div>
+      </section>
+
+      <!-- ============ STUDIO ============ -->
+      <section class="tab-panel" data-panel="studio" hidden>
+        <h1 class="display">Studio</h1>
+        <div class="seg" id="studioSeg">
+          <button type="button" data-v="collages" class="on"><svg class="ic sm"><use href="#i-layers" /></svg> Collages</button>
+          <button type="button" data-v="3d"><svg class="ic sm"><use href="#i-cube" /></svg> 3D</button>
+        </div>
+
+        <div id="studioCollages">
+          <button type="button" class="btn primary block" id="newCollageBtn"><svg class="ic"><use href="#i-plus" /></svg> New collage</button>
+          <button type="button" class="btn quiet block" id="saveCollageBtn"><svg class="ic"><use href="#i-save" /></svg> Save scene as collage</button>
+          <ul id="collageList" class="list"></ul>
+        </div>
+
+        <div id="studio3d" hidden>
+          <h2 class="section">Made here</h2>
+          <ul id="taskList" class="list"></ul>
+          <div id="emptyGallery" class="card empty">
+            <svg class="ic xl"><use href="#i-cube" /></svg>
+            <div><strong>No models yet</strong><p>Make one in Scrap, or turn a sticker into 3D from the Book.</p></div>
+          </div>
+          <h2 class="section">In MongoDB</h2>
+          <div class="seg small" id="meshScope">
+            <button type="button" data-v="mine" class="on"><svg class="ic sm"><use href="#i-person" /></svg> Mine</button>
+            <button type="button" data-v="all"><svg class="ic sm"><use href="#i-grid" /></svg> Everyone</button>
+          </div>
+          <div class="browser" id="meshBrowser"></div>
+        </div>
+      </section>
+
+      <!-- ============ FRIENDS ============ -->
+      <section class="tab-panel" data-panel="friends" hidden>
+        <h1 class="display">Friends</h1>
+        <form class="add-friend" id="addFriendForm">
+          <input id="friendName" type="text" placeholder="Add by username" autocomplete="off" />
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <p id="friendMsg" class="muted small" hidden></p>
+        <h2 class="section">Inbox</h2>
+        <ul id="inboxList" class="list"></ul>
+        <div id="requestsWrap" hidden>
+          <h2 class="section">Requests</h2>
+          <ul id="requestList" class="list"></ul>
+        </div>
+        <h2 class="section">Your friends</h2>
+        <div id="friendChips" class="chips"></div>
+      </section>
     </div>
 
-    <form id="genForm">
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" class="tab on" data-tab="upload">Upload</button>
-        <button type="button" role="tab" class="tab" data-tab="mongo">MongoDB</button>
-      </div>
-
-      <div id="panel-upload">
-        <label id="dropzone" class="dropzone" tabindex="0">
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
-          <img id="preview" alt="" hidden />
-          <span id="dropText">Drop a JPEG here<br /><small>or click to browse · max 20 MB</small></span>
-        </label>
-
-        <label class="field">
-          <span>Name</span>
-          <input id="name" type="text" placeholder="e.g. Coffee mug" maxlength="80" />
-        </label>
-      </div>
-
-      <div id="panel-mongo" hidden>
-        <div id="mongoWarning" class="warning" hidden>
-          <strong>MongoDB not configured.</strong> Add <code>MONGO_URI</code> to <code>.env</code> and restart.
-        </div>
-        <div class="mongo-bar">
-          <select id="mongoSource" aria-label="Image source"></select>
-          <button type="button" id="mongoRefresh" title="Refresh">↻</button>
-        </div>
-        <div class="mongo-meta">
-          <span id="mongoCount" class="muted"></span>
-          <span>
-            <button type="button" class="link" id="selectNew">Select unconverted</button>
-            <button type="button" class="link" id="selectNone">Clear</button>
-          </span>
-        </div>
-        <ul id="mongoGrid" class="mongo-grid"></ul>
-        <p id="mongoError" class="error" hidden></p>
-        <button type="button" id="mongoMore" class="more" hidden>Load more</button>
-      </div>
-
-      <details class="options">
-        <summary>Generation options</summary>
-        <label class="field">
-          <span>AI model</span>
-          <select id="ai_model">
-            <option value="latest" selected>Latest (best quality)</option>
-            <option value="meshy-6">Meshy 6</option>
-            <option value="meshy-6-lite">Meshy 6 Lite (cheaper)</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Target polycount <output id="polyOut">30,000</output></span>
-          <input id="target_polycount" type="range" min="1000" max="100000" step="1000" value="30000" />
-        </label>
-        <label class="field">
-          <span>Topology</span>
-          <select id="topology">
-            <option value="triangle" selected>Triangle (best for three.js)</option>
-            <option value="quad">Quad</option>
-          </select>
-        </label>
-        <label class="check"><input id="should_remesh" type="checkbox" checked /> Remesh (applies polycount &amp; topology)</label>
-        <label class="check"><input id="should_texture" type="checkbox" checked /> Generate textures</label>
-        <label class="check"><input id="enable_pbr" type="checkbox" checked /> PBR maps (metal / rough / normal)</label>
-        <label class="field">
-          <span>Texture prompt <small>(optional)</small></span>
-          <input id="texture_prompt" type="text" maxlength="800" placeholder="e.g. glossy red ceramic" />
-        </label>
-      </details>
-
-      <button id="generateBtn" type="submit" disabled>Generate 3D model</button>
-      <p id="formError" class="error" hidden></p>
-    </form>
-
-    <section class="gallery">
-      <h2>Your models</h2>
-      <ul id="taskList"></ul>
-      <p id="emptyGallery" class="muted">Nothing yet — upload an image to start.</p>
-    </section>
+    <nav class="bottom-nav" aria-label="Sections">
+      <button type="button" data-tab="scrap" class="on"><span class="nav-ic"><svg class="ic"><use href="#i-scrap" /></svg></span>Scrap</button>
+      <button type="button" data-tab="book"><span class="nav-ic"><svg class="ic"><use href="#i-book" /></svg></span>Book</button>
+      <button type="button" data-tab="studio"><span class="nav-ic"><svg class="ic"><use href="#i-studio" /></svg></span>Studio</button>
+      <button type="button" data-tab="friends"><span class="nav-ic"><svg class="ic"><use href="#i-friends" /></svg></span>Friends</button>
+    </nav>
   </aside>
 
   <main class="stage">
@@ -116,27 +185,157 @@
       <p>Select or generate a model to view it here.</p>
     </div>
 
-    <div id="loading" class="loading" hidden><div class="spinner"></div><span>Loading model…</span></div>
+    <div id="loading" class="loading" hidden><div class="spinner"></div><span>Loading…</span></div>
 
     <div id="toolbar" class="toolbar" hidden>
       <span id="modelTitle" class="title"></span>
-      <button data-action="rotate" class="toggle on" title="Auto-rotate">⟳ Rotate</button>
+      <button data-action="rotate" class="toggle" title="Auto-rotate">⟳ Rotate</button>
       <button data-action="wireframe" class="toggle" title="Wireframe">▦ Wireframe</button>
-      <button data-action="bg" class="toggle" title="Toggle background">◐ Background</button>
+      <button data-action="bg" class="toggle" title="Toggle dark background">◐ Dark</button>
       <button data-action="reset" title="Reset camera">⌖ Reset</button>
-      <a id="downloadBtn" class="btn" download>⬇ GLB</a>
+      <button data-action="head" id="headBtn" class="toggle" title="Off-axis projection driven by your head position">👤 Head</button>
+      <button data-action="addSample" title="Add the sample mug to the scene">+ Mug</button>
+      <button data-action="clear" id="clearBtn" title="Remove everything from the scene">Clear</button>
+      <button data-action="download" title="Download the model, or the whole scene as one GLB">⬇ GLB</button>
+      <button data-action="collage" id="collageBtn" class="accent" title="Save this scene to Scrapp's collages in MongoDB">💾 Collage</button>
       <button data-action="snippet" title="three.js code">{ } Code</button>
     </div>
 
     <div id="stats" class="stats" hidden></div>
 
-    <dialog id="snippetDialog">
-      <h3>Use this model in three.js</h3>
+    <div id="selBar" class="sel-bar" hidden>
+      <strong id="selName"></strong>
+      <button data-mode="translate" class="on" title="Move (W)">✥ Move</button>
+      <button data-mode="rotate" title="Rotate (E)">⟲ Rotate</button>
+      <button data-mode="scale" title="Scale (R)">⤢ Scale</button>
+      <button data-sel="billboard" id="billboardBtn" title="Always turn to face the viewer" hidden>◉ Face me</button>
+      <button data-sel="ground" title="Drop onto the floor">⤓ Floor</button>
+      <button data-sel="duplicate" title="Duplicate">⧉ Copy</button>
+      <button data-sel="remove" class="danger" title="Remove from scene (Delete)">✕</button>
+    </div>
+    <div id="flash" class="flash" hidden></div>
+
+    <dialog id="collageDialog" class="paper">
+      <h3 class="display sm">Save collage</h3>
+      <p class="muted">Saves this scene to the <code>collages</code> collection so it opens in the Scrapp app.</p>
+      <input id="collageTitle" type="text" maxlength="120" aria-label="Title" placeholder="Collage title" />
+      <label id="collageUpdateWrap" class="check" hidden>
+        <input id="collageUpdate" type="checkbox" /> <span id="collageUpdateLabel"></span>
+      </label>
+      <p id="collageSummary"></p>
+      <p id="collageSkipped" class="muted" hidden></p>
+      <p id="collageResult" hidden></p>
+      <div class="dialog-actions">
+        <button class="btn quiet" onclick="this.closest('dialog').close()">Close</button>
+        <button id="collageSave" class="btn primary">Save collage</button>
+      </div>
+    </dialog>
+
+    <dialog id="cutDialog" class="paper cut">
+      <header class="cut-head">
+        <h3 class="display sm">Cut stickers</h3>
+        <span class="muted small" id="cutModel">SAM 3 · same model as the app</span>
+        <button type="button" class="icon-btn" id="cutClose" title="Close">×</button>
+      </header>
+      <div class="cut-body">
+        <div class="cut-stage">
+          <div class="cut-frame" id="cutFrame">
+            <img id="cutImg" alt="" />
+            <svg id="cutSvg" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
+            <span id="cutTap" class="cut-tap" hidden></span>
+          </div>
+          <div id="cutBusy" class="cut-busy" hidden><div class="spinner"></div><span></span></div>
+        </div>
+        <aside class="cut-side">
+          <p class="muted small">Tap anything in the photo to cut it out. Tap an outline to pick or unpick it.</p>
+          <form id="cutFind" class="cut-find">
+            <input id="cutPrompt" type="text" placeholder="What to cut? e.g. cup" maxlength="80" />
+            <button class="btn quiet sm" type="submit"><svg class="ic sm"><use href="#i-sparkle" /></svg> Find</button>
+          </form>
+          <ul id="cutList" class="cut-list"></ul>
+          <input id="cutTitle" type="text" placeholder="Sticker title (optional)" maxlength="120" />
+          <button id="cutMake" class="btn primary block" disabled><svg class="ic"><use href="#i-cut" /></svg> <span>Make stickers</span></button>
+          <p id="cutMsg" class="small" hidden></p>
+          <div id="cutDone" hidden>
+            <h4 class="section sm">Made</h4>
+            <div id="cutMade" class="cut-made"></div>
+            <p class="muted small">They're in your Sticker Book. Click 2D to drop one in the scene.</p>
+          </div>
+        </aside>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog" class="paper">
+      <h3 class="display sm">3D generation</h3>
+      <p class="muted">Used by Make 3D model and when turning stickers or captures into 3D.</p>
+      <label class="field">
+        <span>AI model</span>
+        <select id="ai_model">
+          <option value="latest" selected>Latest (best quality)</option>
+          <option value="meshy-6">Meshy 6</option>
+          <option value="meshy-6-lite">Meshy 6 Lite (cheaper)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Target polycount <output id="polyOut">30,000</output></span>
+        <input id="target_polycount" type="range" min="1000" max="100000" step="1000" value="30000" />
+      </label>
+      <label class="field">
+        <span>Topology</span>
+        <select id="topology">
+          <option value="triangle" selected>Triangle (best for three.js)</option>
+          <option value="quad">Quad</option>
+        </select>
+      </label>
+      <label class="check"><input id="should_remesh" type="checkbox" checked /> Remesh (applies polycount &amp; topology)</label>
+      <label class="check"><input id="should_texture" type="checkbox" checked /> Generate textures</label>
+      <label class="check"><input id="enable_pbr" type="checkbox" checked /> PBR maps (metal / rough / normal)</label>
+      <label class="field">
+        <span>Texture prompt <small>(optional)</small></span>
+        <input id="texture_prompt" type="text" maxlength="800" placeholder="e.g. glossy red ceramic" />
+      </label>
+      <div class="dialog-actions">
+        <button class="btn primary" onclick="this.closest('dialog').close()">Done</button>
+      </div>
+    </dialog>
+
+    <section id="headPanel" class="head-panel" hidden>
+      <header>
+        <strong>Head-tracked view</strong>
+        <button type="button" id="headClose" class="link" title="Turn off">Turn off</button>
+      </header>
+      <label class="field inline">
+        <span>Input</span>
+        <select id="headSource">
+          <option value="webcam">Webcam (face tracking)</option>
+          <option value="mouse">Mouse (simulate head)</option>
+        </select>
+      </label>
+      <div id="headVideoWrap" class="head-video">
+        <video id="headVideo" playsinline muted></video>
+        <div id="headDots" hidden><i></i><i></i></div>
+      </div>
+      <p id="headStatus" class="muted"></p>
+      <p id="headError" class="error" hidden></p>
+      <details>
+        <summary>Calibration</summary>
+        <label class="slider"><span>Screen width</span><input id="calScreen" type="range" min="20" max="80" step="0.5" /><output></output></label>
+        <label class="slider"><span>Webcam FOV</span><input id="calFov" type="range" min="40" max="100" step="1" /><output></output></label>
+        <label class="slider"><span>Smoothing</span><input id="calSmooth" type="range" min="0" max="0.95" step="0.05" /><output></output></label>
+        <label class="slider"><span>Strength</span><input id="calStrength" type="range" min="0.5" max="3" step="0.1" /><output></output></label>
+        <label class="slider"><span>Pop-out</span><input id="calPop" type="range" min="0" max="1" step="0.05" /><output></output></label>
+        <button type="button" id="calReset" class="link">Reset calibration</button>
+        <p class="muted">Close one eye for the strongest 3D effect. Drag to spin the model.</p>
+      </details>
+    </section>
+
+    <dialog id="snippetDialog" class="paper">
+      <h3 class="display sm">Use in three.js</h3>
       <p class="muted">Copy the GLB into your project (e.g. <code>/public/models/</code>), then:</p>
       <pre><code id="snippetCode"></code></pre>
       <div class="dialog-actions">
-        <button id="copySnippet">Copy</button>
-        <button onclick="this.closest('dialog').close()">Close</button>
+        <button class="btn quiet" onclick="this.closest('dialog').close()">Close</button>
+        <button id="copySnippet" class="btn primary">Copy</button>
       </div>
     </dialog>
   </main>

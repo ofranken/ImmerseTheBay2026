@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     sam_max_side: int = 1536
     stickers_per_capture: int = 4
 
+    # Shared key for the web app's bridge (routers/webapp.py). Empty = the bridge is off.
+    webapp_key: str = ""
+
     # Hunt matching thresholds (SIFT + RANSAC homography)
     match_min_inliers: int = 25
     match_min_inlier_ratio: float = 0.2
