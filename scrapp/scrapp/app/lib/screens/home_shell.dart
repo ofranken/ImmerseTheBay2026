@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../models.dart';
 import '../state/glasses_state.dart';
 import '../state/library.dart';
 import '../state/social.dart';
@@ -19,12 +23,14 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int tab = 0;
+  StreamSubscription<MeshJob>? _meshSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _meshSub = context.read<Library>().meshFinished.listen(_onMeshFinished);
       context.read<GlassesState>().start();
       // A different account may have been signed in before: never show its data, then load (with retries).
       context.read<Library>()..reset()..refreshAll().catchError((_) {});
@@ -32,8 +38,26 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     });
   }
 
+  /// A 3D model finished while the app is open: tell the user wherever they are, with a shortcut to it.
+  void _onMeshFinished(MeshJob m) {
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    final what = (m.prompt?.isNotEmpty == true) ? '"${m.prompt}"' : 'Your sticker';
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        content: Text(m.failed ? '3D model failed: ${m.error ?? m.status}' : '$what is ready in 3D!'),
+        action: m.done && m.glbUrl != null
+            ? SnackBarAction(label: 'View', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeshPreviewScreen(mesh: m))))
+            : null,
+      ));
+  }
+
   @override
   void dispose() {
+    _meshSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
