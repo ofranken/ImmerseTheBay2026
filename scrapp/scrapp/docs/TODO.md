@@ -12,6 +12,9 @@ Newest priorities first. Move a line to "Done" when it ships.
   - [ ] Tell the user when a model finishes (notification) so they don't have to watch the progress bar.
 
 ## Next
+- [ ] **Friends sharing** (needs the shared database first; backend routes in `routers/social.py` exist, test them
+  end to end across two accounts on the shared DB, including sharing 3D models).
+- [ ] **Book: starred items only.** Add a toggle so the book includes only starred items instead of everything.
 - [ ] **Background system** (scope to confirm, two readings):
   - (a) Backgrounds for collages: pick a backdrop or environment behind the 3D collage (colour, paper, photo, sky),
     saved with the collage and used in exports and the web viewer.
@@ -23,6 +26,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Voice command ("scrapbook that"): glasses mic access is granted; confirm Meta's Developer Center approval.
 - [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
+
+## Later
+- [ ] Plan the scavenger hunt feature (low priority; `hunts` collections already exist in the backend).
 
 ## Security and housekeeping
 - [ ] Rotate secrets that have been pasted into chat or screenshots: the Atlas password and the Meshy key.

@@ -54,6 +54,12 @@ class Library extends ChangeNotifier {
     return s;
   }
 
+  Future<void> setStarred(Sticker s, bool value) async {
+    final r = Map<String, dynamic>.from(await api.patch('/stickers/${s.id}', {'starred': value}));
+    s.j['starred'] = r['starred'] == true;
+    notifyListeners();
+  }
+
   Future<void> deleteSticker(String id) async {
     await api.delete('/stickers/$id');
     stickers.removeWhere((s) => s.id == id);

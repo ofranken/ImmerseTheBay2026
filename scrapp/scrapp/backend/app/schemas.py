@@ -42,6 +42,7 @@ class PointIn(BaseModel):
 class StickerPatch(BaseModel):
     title: str | None = None
     tags: list[str] | None = None
+    starred: bool | None = None
 
 
 AnchorMode = Literal["none", "surface", "object", "image", "geo"]

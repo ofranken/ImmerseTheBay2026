@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../services/glasses_bridge.dart';
+import '../state/app_state.dart';
 import '../state/glasses_state.dart';
 import '../state/library.dart';
 import '../theme/palette.dart';
@@ -29,6 +30,16 @@ class ScrapScreen extends StatelessWidget {
         Row(children: [
           Text('Scrapp', style: ScrappType.wordmark(44)),
           const Spacer(),
+          IconButton(
+            tooltip: 'Log out',
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () async {
+              final gs = context.read<GlassesState>();
+              final app = context.read<AppState>();
+              await gs.disarm();
+              await app.signOut();
+            },
+          ),
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.tune_rounded),

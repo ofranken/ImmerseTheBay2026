@@ -23,7 +23,9 @@ class StickerScreen extends StatelessWidget {
     final me = context.read<AppState>().user?.id;
     final mine = sticker.ownerId == me;
     return Scaffold(
-      appBar: AppBar(title: Text(sticker.title.toUpperCase())),
+      appBar: AppBar(title: Text(sticker.title.toUpperCase()), actions: [
+        if (mine) _StarButton(sticker: sticker),
+      ]),
       body: PaperBackground(
         child: ListView(padding: const EdgeInsets.all(18), children: [
           Center(child: StickerImage(url: sticker.imageUrl, size: 260, heroTag: 'st-${sticker.id}')),
@@ -237,5 +239,19 @@ class _GrowTo3D extends StatelessWidget {
       const SizedBox(height: 8),
       FuzzyProgress(value: job.overall),
     ]);
+  }
+}
+
+class _StarButton extends StatelessWidget {
+  const _StarButton({required this.sticker});
+  final Sticker sticker;
+  @override
+  Widget build(BuildContext context) {
+    context.watch<Library>();
+    return IconButton(
+      tooltip: sticker.starred ? 'Remove star' : 'Star',
+      icon: Icon(sticker.starred ? Icons.star_rounded : Icons.star_border_rounded, color: Palette.tealDeep),
+      onPressed: () => context.read<Library>().setStarred(sticker, !sticker.starred),
+    );
   }
 }

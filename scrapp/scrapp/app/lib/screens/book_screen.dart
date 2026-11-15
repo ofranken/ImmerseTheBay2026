@@ -16,12 +16,29 @@ class BookScreen extends StatefulWidget {
 }
 
 class _BookScreenState extends State<BookScreen> {
+  Future<void> _confirmDelete(BuildContext context, Library lib, Sticker s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete this sticker?'),
+        content: const Text('This can\'t be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Palette.danger))),
+        ],
+      ),
+    );
+    if (ok == true) await lib.deleteSticker(s.id);
+  }
+
   bool received = false;
+  bool starredOnly = true;
 
   @override
   Widget build(BuildContext context) {
     final lib = context.watch<Library>();
-    final list = received ? lib.received : lib.stickers;
+    final all = received ? lib.received : lib.stickers;
+    final list = (starredOnly && !received) ? all.where((s) => s.starred).toList() : all;
     final groups = <String, List<Sticker>>{};
     for (final s in list) {
       groups.putIfAbsent(s.placeName?.isNotEmpty == true ? s.placeName! : 'Somewhere', () => []).add(s);
@@ -43,12 +60,23 @@ class _BookScreenState extends State<BookScreen> {
                 selected: {received},
                 onSelectionChanged: (v) => setState(() => received = v.first),
               ),
+              if (!received) ...[
+                const SizedBox(height: 10),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Starred'), icon: Icon(Icons.star_rounded)),
+                    ButtonSegment(value: false, label: Text('All'), icon: Icon(Icons.grid_view_rounded)),
+                  ],
+                  selected: {starredOnly},
+                  onSelectionChanged: (v) => setState(() => starredOnly = v.first),
+                ),
+              ],
               if (list.isEmpty) ...[
                 const SizedBox(height: 16),
                 EmptyNote(
                   icon: Icons.style_rounded,
-                  title: received ? 'No gifts yet' : 'Your book is empty',
-                  body: received ? 'Stickers friends send you land here.' : 'Every "scrapbook that" turns the things in view into stickers.',
+                  title: received ? 'No gifts yet' : (starredOnly && all.isNotEmpty ? 'No starred scrapps' : 'Your book is empty'),
+                  body: received ? 'Stickers friends send you land here.' : (starredOnly && all.isNotEmpty ? 'Tap All, then star the ones you want here.' : 'Every "scrapbook that" turns the things in view into stickers.'),
                 ),
               ],
             ]),
@@ -81,7 +109,26 @@ class _BookScreenState extends State<BookScreen> {
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StickerScreen(sticker: s))),
                       child: Stack(children: [
                         Center(child: StickerImage(url: s.imageUrl, size: 96, heroTag: 'st-${s.id}')),
-                        if (s.isHero) const Positioned(right: 0, top: 0, child: Icon(Icons.star_rounded, color: Palette.tealDeep, size: 18)),
+                        if (!received)
+                          Positioned(
+                            right: -6, top: -6,
+                            child: IconButton(
+                              tooltip: s.starred ? 'Remove star' : 'Star',
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(s.starred ? Icons.star_rounded : Icons.star_border_rounded, color: Palette.tealDeep, size: 24),
+                              onPressed: () => lib.setStarred(s, !s.starred),
+                            ),
+                          ),
+                        if (!received)
+                          Positioned(
+                            right: -6, bottom: -6,
+                            child: IconButton(
+                              tooltip: 'Delete',
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.delete_outline_rounded, color: Palette.danger, size: 22),
+                              onPressed: () => _confirmDelete(context, lib, s),
+                            ),
+                          ),
                       ]),
                     ),
                   ),

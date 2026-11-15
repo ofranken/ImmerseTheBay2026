@@ -21,6 +21,7 @@ class Sticker {
   double? get lat => _d(j['lat']);
   double? get lng => _d(j['lng']);
   bool get isHero => j['is_hero'] == true;
+  bool get starred => j['starred'] == true;
   DateTime? get capturedAt => j['captured_at'] == null ? null : DateTime.tryParse(j['captured_at']);
   bool get hasLocation => lat != null;
 }
