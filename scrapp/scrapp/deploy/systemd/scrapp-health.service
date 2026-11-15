@@ -1,0 +1,6 @@
+[Unit]
+Description=Scrapp health check (API, studio, tunnel)
+
+[Service]
+Type=oneshot
+ExecStart=%h/Documents/Code/ImmerseTheBay2026/scrapp/scrapp/backend/scripts/healthcheck.sh

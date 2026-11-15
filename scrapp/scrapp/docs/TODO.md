@@ -29,13 +29,16 @@ Newest priorities first. Move a line to "Done" when it ships.
 
 ## Security and housekeeping
 - [ ] Rotate the Atlas password (it was pasted into chat). The Meshy key was rotated and verified.
-- [ ] Sign-ups are open on a public URL and every 3D job spends credits: add a Cloudflare Access policy or an invite
-  code before sharing the link widely (per-user 3D caps are already in).
 - [ ] Re-run the SAM 3 evaluation with the official `facebook/sam3` weights once access is approved (currently a
   community mirror).
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Health check: `scrapp-health.timer` runs `backend/scripts/healthcheck.sh` every minute and restarts the API, studio or
+  tunnel after two failed checks in a row (catches hangs that `Restart=always` can't). Verified by freezing the studio
+  process. Unit files are in `deploy/systemd/` (copy to `~/.config/systemd/user/`, then `systemctl --user enable --now
+  scrapp-health.timer`). Log: `journalctl --user -u scrapp-health`. It warns when Mullvad is connected.
+- [x] Sign-ups need an invite code (`INVITE_CODE` in `backend/.env`; empty = open). The sign-up form has an Invite code field.
 - [x] Book shows starred stickers by default with an All toggle; star, unstar and delete from the grid; logout on the home header.
 - [x] Database moved to Olivia's MongoDB Atlas; demo accounts 11111111 and 22222222 created there.
 - [x] Meshy key rotated; the old key returns 401 and the new one authenticates.

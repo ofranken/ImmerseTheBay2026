@@ -1,0 +1,12 @@
+[Unit]
+Description=Scrapp web studio (Meshy 3D Studio)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documents/Code/ImmerseTheBay2026/scrapp/scrapp/web-app
+ExecStart=/usr/bin/node --env-file-if-exists=.env server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

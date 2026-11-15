@@ -1,0 +1,11 @@
+[Unit]
+Description=Scrapp Cloudflare tunnel (scrapp.nmagic.dev)
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/cloudflared tunnel --no-autoupdate --config %h/.cloudflared/scrapp.yml run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

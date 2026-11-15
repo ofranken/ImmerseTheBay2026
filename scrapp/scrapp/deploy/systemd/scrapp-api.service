@@ -1,0 +1,13 @@
+[Unit]
+Description=Scrapp API (FastAPI + SAM 3)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documents/Code/ImmerseTheBay2026/scrapp/scrapp/backend
+Environment=PUBLIC_BASE_URL=https://scrapp.nmagic.dev
+ExecStart=%h/Documents/Code/ImmerseTheBay2026/scrapp/scrapp/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
