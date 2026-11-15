@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +49,9 @@ import androidx.compose.ui.unit.sp
 import com.google.android.filament.gltfio.FilamentInstance
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
+import com.google.ar.core.DepthPoint
+import com.google.ar.core.InstantPlacementPoint
+import com.google.ar.core.Session
 import com.google.ar.core.Frame
 import com.google.ar.core.HitResult
 import com.google.ar.core.Plane
@@ -170,12 +174,18 @@ private fun yawPose(t: FloatArray, toward: FloatArray): Pose {
     return Pose(t, floatArrayOf(0f, sin(yaw / 2), 0f, cos(yaw / 2)))
 }
 
+/** Best real-surface hit for a drag: planes first (inside their outline, then anywhere on them), then feature/depth points. */
 private fun Frame.bestHit(x: Float, y: Float): HitResult? {
     val hits = hitTest(x, y)
     return hits.firstOrNull { h -> (h.trackable as? Plane)?.let { it.trackingState == TrackingState.TRACKING && it.isPoseInPolygon(h.hitPose) } == true }
-        ?: hits.firstOrNull { h -> (h.trackable as? Point)?.orientationMode == Point.OrientationMode.ESTIMATED_SURFACE_NORMAL }
+        ?: hits.firstOrNull { h -> (h.trackable as? Plane)?.trackingState == TrackingState.TRACKING }
+        ?: hits.firstOrNull { it.trackable is Point || it.trackable is DepthPoint }
         ?: hits.firstOrNull { it.distance < 4f }
 }
+
+private fun describe(h: HitResult) = "${h.trackable.javaClass.simpleName}" +
+    ((h.trackable as? Plane)?.let { "(${it.type}, ${it.trackingState}, inPolygon=${it.isPoseInPolygon(h.hitPose)})" } ?: "") +
+    " d=${"%.2f".format(h.distance)}"
 
 private fun isWall(hit: HitResult) = (hit.trackable as? Plane)?.type == Plane.Type.VERTICAL
 
@@ -201,6 +211,8 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
     var planesSeen by remember { mutableStateOf(false) }
     var trackingProblem by remember { mutableStateOf<String?>(null) }
     val frameRef = remember { arrayOfNulls<Frame>(1) } // latest frame for hit tests; not Compose state (changes every frame)
+    val sessionRef = remember { arrayOfNulls<Session>(1) }
+    var tapNote by remember { mutableStateOf<String?>(null) } // short feedback so every tap visibly registers
 
     // -------- load every sticker and model (in parallel), keep going past failures
     LaunchedEffect(loadRound) {
@@ -240,27 +252,69 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
     val fit = remember(loading, surface, shown.size) {
         if (loading) null else CollageLayout.fit(shown, aspects, surface)
     }
+    // ARSceneView keeps the touch/session lambdas from its FIRST composition, so anything they read that is not itself a
+    // State object must go through rememberUpdatedState (a plain `fit` captured there stayed null forever: taps did nothing).
+    val currentFit by rememberUpdatedState(fit)
 
     // -------- gestures: tap = place, 1 finger = drag, 2 fingers = pinch + twist
     val gesture = remember { GestureState() }
-    fun place(hit: HitResult, camera: Pose) {
-        val t = hit.hitPose.translation
-        val wall = isWall(hit)
-        val pose = if (wall) {
-            val n = hit.hitPose.yAxis // plane normal, horizontal on a wall
-            yawPose(t, floatArrayOf(t[0] + n[0], t[1], t[2] + n[2]))
-        } else yawPose(t, camera.translation)
+    fun setAnchor(a: Anchor, wall: Boolean, note: String) {
         anchor?.detach()
         surface = if (wall) CollageLayout.Surface.WALL else CollageLayout.Surface.FLOOR
         offset = Float3()
         angle = 0f
-        anchor = hit.trackable.createAnchor(pose)
+        anchor = a
+        tapNote = note
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        Log.i(TAG, "placed: $note at ${a.pose}")
+    }
+
+    /**
+     * Forgiving placement: any plane, then a feature or depth point, then ARCore Instant Placement, and if the camera sees
+     * nothing usable, 0.7 m in front of the phone. A tap always places something.
+     */
+    fun placeAt(x: Float, y: Float) {
+        val frame = frameRef[0]
+        val session = sessionRef[0]
+        if (currentFit == null) { tapNote = if (loading) "Still loading, one moment…" else "Nothing to place"; Log.i(TAG, "tap ignored: fit=null loading=$loading"); return }
+        if (frame == null || session == null) { tapNote = "The camera is starting…"; Log.i(TAG, "tap ignored: no frame yet"); return }
+        val camera = frame.camera.pose
+        val hits = runCatching { frame.hitTest(x, y) }.getOrDefault(emptyList())
+        Log.i(TAG, "tap ($x, $y) tracking=${frame.camera.trackingState} hits=${hits.map { describe(it) }}")
+        val hit = hits.firstOrNull { h -> (h.trackable as? Plane)?.let { it.trackingState == TrackingState.TRACKING && it.isPoseInPolygon(h.hitPose) } == true }
+            ?: hits.firstOrNull { h -> (h.trackable as? Plane)?.trackingState == TrackingState.TRACKING }
+            ?: hits.firstOrNull { it.trackable is Point || it.trackable is DepthPoint }
+            ?: hits.firstOrNull()
+        if (hit != null) {
+            val t = hit.hitPose.translation
+            val wall = isWall(hit)
+            val pose = if (wall) {
+                val n = hit.hitPose.yAxis // plane normal, horizontal on a wall
+                yawPose(t, floatArrayOf(t[0] + n[0], t[1], t[2] + n[2]))
+            } else yawPose(t, camera.translation)
+            val a = runCatching { hit.trackable.createAnchor(pose) }.onFailure { Log.w(TAG, "anchor on trackable failed", it) }.getOrNull()
+                ?: runCatching { session.createAnchor(pose) }.getOrNull()
+            if (a != null) return setAnchor(a, wall, if (wall) "Placed on the wall" else "Placed")
+        }
+        if (frame.camera.trackingState == TrackingState.TRACKING) {
+            val instant = runCatching { frame.hitTestInstantPlacement(x, y, 0.7f).firstOrNull() }.getOrNull()
+            if (instant != null) {
+                val t = instant.hitPose.translation
+                val a = runCatching { (instant.trackable as InstantPlacementPoint).createAnchor(yawPose(t, camera.translation)) }.getOrNull()
+                if (a != null) return setAnchor(a, false, "Placed (it will settle onto the surface)")
+            }
+            // Nothing under the finger: stand it 0.7 m ahead, a little below eye level, facing you.
+            val ahead = camera.compose(Pose.makeTranslation(0f, -0.25f, -0.7f)).translation
+            val a = runCatching { session.createAnchor(yawPose(ahead, camera.translation)) }.getOrNull()
+            if (a != null) return setAnchor(a, false, "No surface there, so it's floating in front of you. Drag it onto a table.")
+        }
+        tapNote = "Can't see the room yet. Move the phone slowly and try again."
     }
 
     fun dragTo(x: Float, y: Float) {
         val a = anchor ?: return
         val hit = frameRef[0]?.bestHit(x, y) ?: return
+        if (surface == CollageLayout.Surface.FLOOR && isWall(hit)) return // keep a table collage off the walls while dragging
         val local = a.pose.inverse().transformPoint(hit.hitPose.translation)
         offset = when (surface) {
             CollageLayout.Surface.FLOOR -> Float3(local[0], local[1].coerceIn(-0.6f, 0.6f), local[2])
@@ -286,7 +340,7 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
             materialLoader = materialLoader,
             planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL,
             depthMode = Config.DepthMode.AUTOMATIC,
-            instantPlacementMode = Config.InstantPlacementMode.DISABLED,
+            instantPlacementMode = Config.InstantPlacementMode.LOCAL_Y_UP,
             planeRenderer = anchor == null,
             onTrackingFailureChanged = { reason ->
                 trackingProblem = when (reason) {
@@ -298,7 +352,8 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
                     else -> "Move your phone slowly…"
                 }
             },
-            onSessionUpdated = { _, frame ->
+            onSessionUpdated = { session, frame ->
+                sessionRef[0] = session
                 frameRef[0] = frame
                 if (!planesSeen && frame.getUpdatedTrackables(Plane::class.java).any { it.trackingState == TrackingState.TRACKING }) planesSeen = true
             },
@@ -306,12 +361,7 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
                 handleTouch(
                     e, gesture,
                     placed = anchor != null,
-                    onTap = { x, y ->
-                        val frame = frameRef[0]
-                        if (anchor == null && fit != null && frame != null) {
-                            frame.bestHit(x, y)?.let { place(it, frame.camera.pose) }
-                        }
-                    },
+                    onTap = { x, y -> if (anchor == null) placeAt(x, y) else Log.i(TAG, "tap while placed (use Re-place)") },
                     onDrag = { x, y -> dragTo(x, y) },
                     onPinchTwist = { ratio, twist ->
                         userScale = CollageLayout.clampUserScale(userScale * ratio)
@@ -376,6 +426,7 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
             Column(Modifier.fillMaxWidth().background(Cream, RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Text(req.title.uppercase(), color = Ink, fontWeight = FontWeight.Black, fontSize = 20.sp)
                 Text(message, color = Ink, fontSize = 15.sp)
+                tapNote?.let { Text(it, color = Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                 if (anchor != null && fit != null) {
                     val largest = fit.bounds.size.max() * fit.metresPerUnit * userScale
                     Text("About ${CollageLayout.sizeLabel(largest)} across", color = Ink.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -402,6 +453,7 @@ fun CollageArScreen(req: CollageArRequest, onDone: () -> Unit) {
                             onClick = {
                                 anchor?.detach()
                                 anchor = null
+                                tapNote = null
                                 userScale = 1f
                                 angle = 0f
                                 offset = Float3()
@@ -451,7 +503,7 @@ private fun handleTouch(
             g.lastAx = e.getX(0); g.lastAy = e.getY(0); g.lastBx = e.getX(1); g.lastBy = e.getY(1)
         }
         MotionEvent.ACTION_MOVE -> {
-            if (hypot(e.x - g.downX, e.y - g.downY) > 24f) g.moved = true
+            if (hypot(e.x - g.downX, e.y - g.downY) > 48f) g.moved = true
             if (!placed) return true
             if (e.pointerCount >= 2) {
                 val ax = e.getX(0); val ay = e.getY(0); val bx = e.getX(1); val by = e.getY(1)
@@ -471,7 +523,8 @@ private fun handleTouch(
             }
         }
         MotionEvent.ACTION_UP -> {
-            if (!g.moved && !g.multi && e.eventTime - g.downAt < 500) onTap(e.x, e.y)
+            Log.d(TAG, "up moved=${g.moved} multi=${g.multi} dt=${e.eventTime - g.downAt}")
+            if (!g.moved && !g.multi && e.eventTime - g.downAt < 700) onTap(e.x, e.y)
         }
     }
     return true
