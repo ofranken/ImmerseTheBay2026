@@ -12,17 +12,13 @@ Newest priorities first. Move a line to "Done" when it ships.
   - [ ] Tell the user when a model finishes (notification) so they don't have to watch the progress bar.
 
 ## Next
-- [ ] **Friends sharing** (needs the shared database first; backend routes in `routers/social.py` exist, test them
-  end to end across two accounts on the shared DB, including sharing 3D models).
-- [ ] **Book: starred items only.** Add a toggle so the book includes only starred items instead of everything.
+- [ ] **Friends sharing, app side.** The backend is verified on Atlas (request, accept, share, inbox, hunts). Still to check on a device: the Friends tab, share sheets, and sharing 3D models.
 - [ ] **Background system** (scope to confirm, two readings):
   - (a) Backgrounds for collages: pick a backdrop or environment behind the 3D collage (colour, paper, photo, sky),
     saved with the collage and used in exports and the web viewer.
   - (b) A background job system: a server-side queue/worker so captures, sticker cutting and 3D jobs keep running
     and retry on their own, and the app is told when they finish.
-- [ ] Move the database to Olivia's MongoDB Atlas (blocked: Atlas Network Access must allow this machine; then set
-  `MONGO_URI` in `backend/.env` and recreate the DaGoat account).
-- [ ] Voice command ("scrapbook that"): glasses mic access is granted; confirm Meta's Developer Center approval.
+- [ ] Confirm Meta's Developer Center approval for the "scrapbook that" / "found it" voice commands on real glasses.
 - [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
 
@@ -32,7 +28,7 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Hunt map view, per-item radius/title editing, leaderboard.
 
 ## Security and housekeeping
-- [ ] Rotate secrets that have been pasted into chat or screenshots: the Atlas password and the Meshy key.
+- [ ] Rotate the Atlas password (it was pasted into chat). The Meshy key was rotated and verified.
 - [ ] Sign-ups are open on a public URL and every 3D job spends credits: add a Cloudflare Access policy or an invite
   code before sharing the link widely (per-user 3D caps are already in).
 - [ ] Re-run the SAM 3 evaluation with the official `facebook/sam3` weights once access is approved (currently a
@@ -40,6 +36,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Book shows starred stickers by default with an All toggle; star, unstar and delete from the grid; logout on the home header.
+- [x] Database moved to Olivia's MongoDB Atlas; demo accounts 11111111 and 22222222 created there.
+- [x] Meshy key rotated; the old key returns 401 and the new one authenticates.
 - [x] "Found it" voice command: during a hunt it takes a photo and checks it against the remaining finds (speaks "Checking",
   then the result). Outside a hunt it does nothing, so ordinary chatter never triggers a photo. "got it" was dropped from the
   phrases for that reason. Unit-tested in `VoiceCommandMatcherTest`; not yet tried on real glasses.
