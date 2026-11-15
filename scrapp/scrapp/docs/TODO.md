@@ -17,13 +17,14 @@ Newest priorities first. Move a line to "Done" when it ships.
   sticker cutting and 3D jobs keep running and retry on their own, and the app is told when they finish.
   (Collage backdrops, reading (a), shipped: see Done.)
 - [ ] Confirm Meta's Developer Center approval for the "scrapbook that" / "found it" voice commands on real glasses.
-- [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
+- [ ] **Tap-to-cut: make the whole-object fix fast.** Measured on the COCO eval set (`python -m tests.tapcut_study --concepts`), preferring a whole-object concept mask over the tapped part lifts the hit rate from 59% to 76% (dev) and 82% (holdout). It is built (`choose_whole_object`, `TAP_WHOLE_OBJECT=1`) but OFF by default because it adds ~8 s per tap (70-noun vocabulary). Using only the first 36 nouns plus centre points costs ~5 s with the same gain; centre points alone cost ~0.7 s and are unmeasured. Next: measure centre-point-only and tap-centred points, then enable.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
 
 ## Scavenger hunt (built; hardened, see Done)
 - [ ] Verify hunt matching on real glasses and ARCore. SIFT handles flat, textured targets (posters, paintings, signs). A DINOv2
   appearance fallback now covers non-flat objects (`services/embedding_match.py`), but its thresholds were calibrated on pasted-object
   tests only (7/17 true, 0/17 false); tune them with real glasses photos.
+- [ ] Tune the DINOv2 hunt matcher (`EMBED_*` in `config.py`) on real glasses photos; thresholds were calibrated on synthetic composites only (strict on purpose: a wrong tick-off is worse than a miss).
 - [ ] Hunt map view, per-item radius/title editing, leaderboard.
 
 ## Security and housekeeping
@@ -33,6 +34,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Demo content seeded (`backend/scripts/seed_demo.py`, idempotent) and the demo script written (`docs/DEMO.md`): both accounts have starred real-object stickers, a published collage with a rendered thumbnail and a finished 3D model; `Poster Hunt (demo)` (3 flat textured posters, print-outs in `docs/demo_assets/`) is shared 11111111 -> 22222222 and was proven by re-photographing each poster at an angle (185, 143, 124 SIFT inliers, 3/3).
+- [x] Hunts: optional DINOv2-small appearance matcher as a fallback when SIFT misses; collage backgrounds (colour, paper, gradient, photo) in the editor, exports and the public viewer.
+- [x] Glasses capture recovery: a timed-out photo (Meta AI link stall, `DAT:HeartbeatMonitor: Heartbeat timeout`) now resets the camera stream and retries once, instead of reusing the dead stream until the app restarts.
 - [x] Collage backgrounds: colour, paper, gradient presets (sky, sunset, mint, night, dawn) or one of your photos, chosen from a Background
   button in the collage editor, saved in `scene.background`, shown in the editor, in saved PNGs and in the public web viewer.
   Tests: `backend/tests/test_collage_background.py`, `app/test/collage_background_test.dart`.

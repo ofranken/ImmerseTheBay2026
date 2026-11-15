@@ -135,7 +135,7 @@ class _ShareSheetState extends State<_ShareSheet> {
           if (anchor.mode == 'object') ...[
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              value: anchor.objectClass,
+              initialValue: anchor.objectClass,
               decoration: const InputDecoration(labelText: 'They hold up a…'),
               items: [for (final c in anchorObjectClasses) DropdownMenuItem(value: c, child: Text(c))],
               onChanged: (v) => setState(() => anchor.objectClass = v),
