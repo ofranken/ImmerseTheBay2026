@@ -368,23 +368,33 @@ object GlassesManager {
             return@withLock
         }
         speak(announce)
-        val stream = ensureStreaming(s)
-        if (stream == null) {
-            speak("Camera not ready")
-            return@withLock
-        }
-        val result = withTimeoutOrNull(12_000) { stream.capturePhoto() }
+        // The glasses link can stall (Meta AI app service restarts, Bluetooth contention): the video stream looks alive but
+        // the still-photo request times out. A stalled stream never recovers by itself, so on any failure we drop it and
+        // build a fresh one, and retry once before giving up. Never keep reusing a stream that just failed.
         var jpeg: ByteArray? = null
         var failure: String? = null
-        if (result == null) failure = "Photo timed out"
-        else result.fold(
-            onSuccess = { data -> jpeg = toJpeg(data) },
-            onFailure = { e, _ -> failure = e.description },
-        )
+        for (attempt in 1..2) {
+            failure = null
+            val stream = ensureStreaming(s)
+            if (stream == null) {
+                failure = "Camera not ready"
+            } else {
+                val result = withTimeoutOrNull(12_000) { stream.capturePhoto() }
+                if (result == null) failure = "Photo timed out"
+                else result.fold(
+                    onSuccess = { data -> jpeg = toJpeg(data); if (jpeg == null) failure = "Photo could not be decoded" },
+                    onFailure = { e, _ -> failure = e.description },
+                )
+            }
+            if (jpeg != null) break
+            Log.w(TAG, "Capture attempt $attempt failed: $failure; resetting the camera stream")
+            releaseCamera()
+            if (attempt == 1) delay(1200)
+        }
         if (!config.warmCamera) releaseCamera()
         val bytes = jpeg
         if (bytes == null) {
-            emitError(failure ?: "Photo could not be decoded")
+            emitError("${failure ?: "Photo failed"}. Check the glasses show Connected in the Meta AI app, then tap Stop and Start scrapbooking.")
             speak("Capture failed")
             return@withLock
         }

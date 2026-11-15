@@ -48,6 +48,31 @@ def candidate_from_mask(mask: np.ndarray, quality: float) -> MaskCandidate | Non
                          solidity=mask_solidity(mask))
 
 
+WHOLE_OBJECT_OVERLAP = 0.9   # the concept mask must contain at least this share of the point mask
+WHOLE_OBJECT_MAX_AREA = 0.9  # ...and must not be (nearly) the whole picture
+
+
+def choose_whole_object(base: MaskCandidate, concepts: list[MaskCandidate], x: int, y: int,
+                        overlap: float = WHOLE_OBJECT_OVERLAP, max_area: float = WHOLE_OBJECT_MAX_AREA) -> MaskCandidate:
+    """Prefer the whole object over the part under the tap.
+
+    Among whole-object candidates (SAM 3 concept masks) that contain the tapped pixel, are bigger than `base` and
+    swallow (most of) it, take the most confident one. Otherwise keep `base`. Pure numpy: unit-tested without a GPU.
+    """
+    base_area = max(int(base.mask.sum()), 1)
+    inside = []
+    for c in concepts:
+        m = c.mask
+        if not (0 <= y < m.shape[0] and 0 <= x < m.shape[1]) or not m[y, x]:
+            continue
+        if m.sum() <= base_area or m.mean() > max_area:
+            continue
+        if np.logical_and(m, base.mask).sum() / base_area < overlap:
+            continue
+        inside.append(c)
+    return max(inside, key=lambda c: c.quality) if inside else base
+
+
 def mask_solidity(mask: np.ndarray) -> float:
     """Filled-ness of a mask: area over convex-hull area. A tabletop full of holes scores far below a mug."""
     contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -168,6 +193,10 @@ class Sam3Segmenter:
         return out
 
     def mask_at_point(self, image_rgb: np.ndarray, x: int, y: int) -> MaskCandidate | None:
+        """Tap-to-cut. A tap lands on some part of an object, and SAM's point masks favour that part (a cup's handle, a
+        keyboard key). So: take SAM's best point mask, then swap it for a whole-object concept mask when one contains the
+        tap and swallows the point mask (see choose_whole_object). Measured on the COCO eval set, 59% -> 76% (dev) and
+        59% -> 82% (holdout) of taps recovered the whole object (IoU >= 0.5); see tests/tapcut_study.py."""
         import torch
         from PIL import Image
 
@@ -179,7 +208,14 @@ class Sam3Segmenter:
                 multimask_output=True,
             )
         best = int(np.argmax(scores))
-        return candidate_from_mask(refine_mask(masks[best] > 0), float(scores[best]))
+        base = candidate_from_mask(refine_mask(masks[best] > 0), float(scores[best]))
+        if base is None:
+            return None
+        try:
+            concepts = self.auto_masks(image_rgb, None)  # takes the lock itself; the point pass above has released it
+        except Exception:  # noqa: BLE001 - the plain point mask is always an acceptable answer
+            return base
+        return choose_whole_object(base, concepts, x, y)
 
 
 # ------------------------------------------------------------------------------- CPU dev fallback
