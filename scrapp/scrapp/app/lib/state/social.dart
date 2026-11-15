@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models.dart';
@@ -16,7 +18,46 @@ class Social extends ChangeNotifier {
 
   int get unseen => inbox.where((e) => !e.seen).length + incoming.length;
 
-  Future<void> refreshAll() => Future.wait([refreshFriends(), refreshInbox(), refreshHunts()]);
+  Timer? _retry;
+  int _attempts = 0;
+  String? loadError;
+
+  /// Same retry-with-backoff as Library.refreshAll, for friends, the inbox and hunts.
+  Future<void> refreshAll() async {
+    try {
+      await Future.wait([refreshFriends(), refreshInbox(), refreshHunts()]);
+      loadError = null;
+      _attempts = 0;
+      _retry?.cancel();
+    } catch (e) {
+      loadError = '$e';
+      if (_retry?.isActive != true) {
+        final seconds = (2 << _attempts).clamp(2, 30);
+        if (_attempts < 5) _attempts++;
+        _retry = Timer(Duration(seconds: seconds), () => refreshAll().catchError((_) {}));
+      }
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Forget the previous account's friends, inbox and hunts.
+  void reset() {
+    _retry?.cancel();
+    _attempts = 0;
+    loadError = null;
+    friends = [];
+    incoming = [];
+    inbox = [];
+    hunts = [];
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _retry?.cancel();
+    super.dispose();
+  }
 
   Future<void> refreshFriends() async {
     final r = Map<String, dynamic>.from(await api.get('/friends'));

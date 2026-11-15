@@ -26,8 +26,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<GlassesState>().start();
-      context.read<Library>().refreshAll().catchError((_) {});
-      context.read<Social>().refreshAll().catchError((_) {});
+      // A different account may have been signed in before: never show its data, then load (with retries).
+      context.read<Library>()..reset()..refreshAll().catchError((_) {});
+      context.read<Social>()..reset()..refreshAll().catchError((_) {});
     });
   }
 
@@ -44,6 +45,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       g.refreshStatus();
       g.drainOutbox();
       context.read<Social>().refreshInbox().catchError((_) {});
+      final lib = context.read<Library>();
+      if (lib.loadError != null) lib.refreshAll().catchError((_) {}); // coming back online
     }
   }
 

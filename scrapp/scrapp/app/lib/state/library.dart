@@ -18,17 +18,50 @@ class Library extends ChangeNotifier {
   List<Collage> collages = [];
   List<MeshJob> meshes = [];
   bool loading = false;
+  String? loadError; // set while the last full load failed (offline at startup, server down)
   Timer? _meshPoll;
+  Timer? _retry;
+  int _attempts = 0;
 
+  /// Loads everything. If it fails (network down at startup) it keeps retrying with a growing delay
+  /// (2s, 4s, 8s ... capped at 30s) until it works, so the Sticker Book fills in on its own.
   Future<void> refreshAll() async {
     loading = true;
     notifyListeners();
     try {
       await Future.wait([refreshStickers(), refreshCaptures(), refreshCollages(), refreshMeshes()]);
+      loadError = null;
+      _attempts = 0;
+      _retry?.cancel();
+    } catch (e) {
+      loadError = '$e';
+      _scheduleRetry();
+      rethrow;
     } finally {
       loading = false;
       notifyListeners();
     }
+  }
+
+  void _scheduleRetry() {
+    if (_retry?.isActive == true) return;
+    final seconds = (2 << _attempts).clamp(2, 30);
+    if (_attempts < 5) _attempts++;
+    _retry = Timer(Duration(seconds: seconds), () => refreshAll().catchError((_) {}));
+  }
+
+  /// Forget the previous account's data (sign-out / account switch).
+  void reset() {
+    _retry?.cancel();
+    _meshPoll?.cancel();
+    _attempts = 0;
+    loadError = null;
+    stickers = [];
+    received = [];
+    captures = [];
+    collages = [];
+    meshes = [];
+    notifyListeners();
   }
 
   Future<void> refreshStickers() async {
@@ -131,6 +164,7 @@ class Library extends ChangeNotifier {
 
   @override
   void dispose() {
+    _retry?.cancel();
     _meshPoll?.cancel();
     super.dispose();
   }

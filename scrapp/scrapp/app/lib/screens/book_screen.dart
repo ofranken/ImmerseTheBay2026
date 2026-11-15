@@ -60,6 +60,19 @@ class _BookScreenState extends State<BookScreen> {
                 selected: {received},
                 onSelectionChanged: (v) => setState(() => received = v.first),
               ),
+              if (lib.loadError != null) ...[
+                const SizedBox(height: 10),
+                PaperCard(
+                  color: Palette.card,
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    const Icon(Icons.cloud_off_rounded, color: Palette.danger),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Can\'t reach Scrapp. Retrying…', style: TextStyle(fontWeight: FontWeight.w700))),
+                    TextButton(onPressed: () => lib.refreshAll().catchError((_) {}), child: const Text('Retry now')),
+                  ]),
+                ),
+              ],
               if (!received) ...[
                 const SizedBox(height: 10),
                 SegmentedButton<bool>(
