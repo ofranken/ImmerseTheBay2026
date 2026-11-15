@@ -4,11 +4,13 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../models.dart';
 import '../services/asset_server.dart';
+import '../state/app_state.dart';
 import '../state/library.dart';
 import '../theme/palette.dart';
 import '../theme/theme.dart';
 import '../widgets/fuzzy.dart';
 import '../widgets/paper.dart';
+import '../widgets/share_dialog.dart';
 import 'collage_editor_screen.dart';
 
 /// Collages (paper) and 3D generation (fuzz).
@@ -179,6 +181,9 @@ class _MeshPreviewScreenState extends State<MeshPreviewScreen> {
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
     ..setBackgroundColor(Palette.paper);
 
+  /// A model a friend sent you can be previewed but not re-sent (the server only lets owners share).
+  bool get mine => widget.mesh.j['owner_id'] == null || widget.mesh.j['owner_id'] == context.read<AppState>().user?.id;
+
   @override
   void initState() {
     super.initState();
@@ -187,7 +192,17 @@ class _MeshPreviewScreenState extends State<MeshPreviewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text((widget.mesh.prompt ?? '3D MODEL').toUpperCase(), overflow: TextOverflow.ellipsis)),
+        appBar: AppBar(
+          title: Text((widget.mesh.prompt ?? '3D MODEL').toUpperCase(), overflow: TextOverflow.ellipsis),
+          actions: [
+            if (mine && widget.mesh.done)
+              IconButton(
+                tooltip: 'Send to friends',
+                icon: const Icon(Icons.send_rounded),
+                onPressed: () => shareWithFriends(context, kind: 'mesh', itemId: widget.mesh.id, title: 'Send 3D model to'),
+              ),
+          ],
+        ),
         body: PaperBackground(child: WebViewWidget(controller: web)),
       );
 }

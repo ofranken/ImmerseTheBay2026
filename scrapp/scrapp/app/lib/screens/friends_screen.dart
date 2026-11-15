@@ -9,6 +9,7 @@ import '../theme/theme.dart';
 import '../widgets/paper.dart';
 import 'collage_editor_screen.dart';
 import 'hunts_screen.dart';
+import 'studio_screen.dart';
 
 class FriendsScreen extends StatelessWidget {
   const FriendsScreen({super.key});
@@ -31,7 +32,13 @@ class FriendsScreen extends StatelessWidget {
                 const Icon(Icons.person_add_alt_1_rounded),
                 const SizedBox(width: 10),
                 Expanded(child: Text(r.from.displayName, style: const TextStyle(fontWeight: FontWeight.w800))),
-                ScrappButton(label: 'Accept', onPressed: () => social.accept(r.requestId)),
+                ScrappButton(label: 'Accept', onPressed: () async {
+                  try {
+                    await social.accept(r.requestId);
+                  } catch (e) {
+                    if (context.mounted) toast(context, '$e');
+                  }
+                }),
               ])),
             ),
         ],
@@ -63,7 +70,9 @@ class _AddFriendState extends State<_AddFriend> {
           label: 'Add',
           onPressed: () async {
             try {
-              final status = await context.read<Social>().addFriend(c.text.trim());
+              final name = c.text.trim().replaceFirst(RegExp(r'^@+'), '');
+              if (name.isEmpty) return;
+              final status = await context.read<Social>().addFriend(name);
               c.clear();
               if (context.mounted) toast(context, status == 'accepted' ? 'You are now friends' : 'Request sent');
               if (context.mounted) await context.read<Social>().refreshFriends();
@@ -90,11 +99,15 @@ class _InboxCard extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final social = context.read<Social>();
-    social.markSeen(entry);
+    social.markSeen(entry).catchError((_) {}); // best effort: opening the item matters more
     switch (entry.kind) {
       case 'sticker':
         final s = Sticker(entry.item);
         final a = entry.anchor;
+        if (s.imageUrl == null) {
+          if (context.mounted) toast(context, 'That sticker is no longer available.');
+          return;
+        }
         await ArBridge.open(
           title: 'From ${entry.fromName}',
           instructions: _anchorHint(a),
@@ -102,8 +115,16 @@ class _InboxCard extends StatelessWidget {
         );
       case 'collage':
         await Navigator.push(context, MaterialPageRoute(builder: (_) => CollageEditorScreen(collage: Collage(entry.item))));
+      case 'mesh':
+        final m = MeshJob(entry.item);
+        if (!m.done) {
+          if (context.mounted) toast(context, 'That 3D model is no longer available.');
+          return;
+        }
+        if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => MeshPreviewScreen(mesh: m)));
       case 'hunt':
-        await social.refreshHunts();
+        // The inbox already carries the whole hunt; the play screen also loads it fresh and can retry.
+        social.replaceFromJson(Map<String, dynamic>.from(entry.item));
         if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => HuntPlayScreen(huntId: entry.item['id'])));
     }
   }
@@ -114,9 +135,10 @@ class _InboxCard extends StatelessWidget {
     final preview = switch (entry.kind) {
       'sticker' => StickerImage(url: item['image_url'], size: 64),
       'collage' => ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(item['thumbnail_url'] ?? '', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.layers_rounded, size: 40))),
+      'mesh' => ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(item['thumbnail_url'] ?? '', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.view_in_ar_rounded, size: 40))),
       _ => const Icon(Icons.travel_explore_rounded, size: 48),
     };
-    final what = switch (entry.kind) { 'sticker' => 'a sticker', 'collage' => 'a collage', 'hunt' => 'a hunt: ${item['title'] ?? ''}', _ => entry.kind };
+    final what = switch (entry.kind) { 'sticker' => 'a sticker', 'collage' => 'a collage', 'mesh' => 'a 3D model', 'hunt' => 'a hunt: ${item['title'] ?? ''}', _ => entry.kind };
     return PaperCard(
       color: entry.seen ? Palette.card : Palette.teal,
       onTap: () => _open(context),
