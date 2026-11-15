@@ -11,6 +11,7 @@ import '../state/social.dart';
 import '../theme/palette.dart';
 import '../theme/theme.dart';
 import '../widgets/paper.dart';
+import '../widgets/share_dialog.dart';
 
 class HuntsScreen extends StatelessWidget {
   const HuntsScreen({super.key});
@@ -227,32 +228,7 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
     if (found.isNotEmpty && mounted) toast(context, 'Checked off ${found.length}!');
   }
 
-  Future<void> _share(Hunt h) async {
-    final social = context.read<Social>();
-    await social.refreshFriends();
-    if (!mounted) return;
-    if (social.friends.isEmpty) {
-      toast(context, 'Add a friend first (Friends tab), then send them the hunt.');
-      return;
-    }
-    final picked = <String>{};
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, set) => AlertDialog(
-        backgroundColor: Palette.card,
-        title: const Text('Send hunt to'),
-        content: Wrap(spacing: 8, children: [
-          for (final f in social.friends)
-            FilterChip(label: Text(f.displayName), selected: picked.contains(f.id), onSelected: (v) => set(() => v ? picked.add(f.id) : picked.remove(f.id))),
-        ]),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send'))],
-      )),
-    );
-    if (ok == true && picked.isNotEmpty) {
-      await social.share(kind: 'hunt', itemId: h.id, to: picked.toList());
-      if (mounted) toast(context, 'Hunt sent');
-    }
-  }
+  Future<void> _share(Hunt h) => shareWithFriends(context, kind: 'hunt', itemId: h.id, title: 'Send hunt to');
 
   @override
   Widget build(BuildContext context) {

@@ -12,7 +12,7 @@ Newest priorities first. Move a line to "Done" when it ships.
   - [x] Model-finished notice: a floating message with a "View" button and a buzz, on whatever screen is open. In-app only: polling stops when the app is in the background, so a system notification would need server push (FCM).
 
 ## Next
-- [ ] **Friends sharing, app side.** The backend is verified on Atlas (request, accept, share, inbox, hunts). Still to check on a device: the Friends tab, share sheets, and sharing 3D models.
+- [ ] **Friends sharing: check on a device.** Backend (8 HTTP tests) and app state logic (7 Dart tests) are covered. Still to try by hand on two phones/accounts: the Friends tab, the sticker share sheet, sending a 3D model (new button on the 3D preview) and opening it from the inbox.
 - [ ] **Background system** (scope to confirm, two readings):
   - (a) Backgrounds for collages: pick a backdrop or environment behind the 3D collage (colour, paper, photo, sky),
     saved with the collage and used in exports and the web viewer.
@@ -34,6 +34,10 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Friends sharing review: sending a 3D model now works end to end (share button on the preview, opens from the inbox); a repeat
+  share updates the friend's existing inbox entry instead of duplicating it; asking an existing friend says "accepted", not
+  "Request sent"; unfinished 3D models can't be shared; Accept/open failures now show a message instead of failing silently; a hunt
+  opens straight from the inbox card. Tests: `backend/tests/test_social.py`, `app/test/social_test.dart`.
 - [x] Health check: `scrapp-health.timer` runs `backend/scripts/healthcheck.sh` every minute and restarts the API, studio or
   tunnel after two failed checks in a row (catches hangs that `Restart=always` can't). Verified by freezing the studio
   process. Unit files are in `deploy/systemd/` (copy to `~/.config/systemd/user/`, then `systemctl --user enable --now

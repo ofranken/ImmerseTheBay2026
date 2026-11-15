@@ -44,13 +44,14 @@ async def request_friend(body: FriendRequestIn, user=Depends(current_user)):
     if not other or other["_id"] == user["_id"]:
         raise HTTPException(404, "No such user")
     reverse = await db().friendships.find_one({"requester_id": other["_id"], "addressee_id": user["_id"]})
-    if reverse:  # they already asked: accept
+    if reverse:  # they already asked (or are already friends): accept
         await db().friendships.update_one({"_id": reverse["_id"]}, {"$set": {"status": "accepted"}})
         return {"status": "accepted"}
     try:
         await db().friendships.insert_one({"requester_id": user["_id"], "addressee_id": other["_id"], "status": "pending", "created_at": now()})
-    except DuplicateKeyError:
-        pass
+    except DuplicateKeyError:  # asked before: report where that request stands instead of claiming a new one was sent
+        existing = await db().friendships.find_one({"requester_id": user["_id"], "addressee_id": other["_id"]})
+        return {"status": (existing or {}).get("status", "pending")}
     return {"status": "pending"}
 
 
@@ -71,6 +72,8 @@ async def share(body: ShareIn, user=Depends(current_user)):
     targets = [oid(t) for t in body.to_user_ids]
     if any(t not in friends for t in targets):
         raise HTTPException(403, "You can only share with friends")
+    if body.kind == "mesh" and not item.get("glb_file_id"):
+        raise HTTPException(409, "That 3D model is not finished yet")
     anchor = body.anchor.model_dump() if body.anchor else None
     if anchor and anchor["mode"] == "image" and body.kind == "sticker":
         # "On the exact thing": the receiver's AR camera tracks the region of the sender's original photo.
@@ -78,11 +81,15 @@ async def share(body: ShareIn, user=Depends(current_user)):
         original = cv2.imdecode(np.frombuffer(await get_bytes(cap["original_file_id"]), np.uint8), cv2.IMREAD_COLOR)
         ok, jpg = cv2.imencode(".jpg", crop_target(original, item["bbox"]), [cv2.IMWRITE_JPEG_QUALITY, 92])
         anchor["target_file_id"] = await put_bytes(jpg.tobytes(), "target.jpg", "image/jpeg", user["_id"], "share_target")
-    docs = [{"from_id": user["_id"], "to_id": t, "kind": body.kind, "item_id": item["_id"], "anchor": anchor,
-             "message": body.message, "seen_at": None, "created_at": now()} for t in targets]
-    if docs:
-        await db().shares.insert_many(docs)
-    return {"shared": len(docs)}
+    # One share per (sender, item, friend): sending again refreshes it (new anchor/message, unread again) instead of
+    # piling up duplicates in their inbox.
+    for t in dict.fromkeys(targets):
+        await db().shares.update_one(
+            {"from_id": user["_id"], "to_id": t, "kind": body.kind, "item_id": item["_id"]},
+            {"$set": {"anchor": anchor, "message": body.message, "seen_at": None, "created_at": now()}},
+            upsert=True,
+        )
+    return {"shared": len(set(targets))}
 
 
 @router.get("/shares/inbox")
