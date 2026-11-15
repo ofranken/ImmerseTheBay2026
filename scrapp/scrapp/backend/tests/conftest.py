@@ -19,6 +19,7 @@ def api(monkeypatch):
     monkeypatch.setenv("MONGO_DB", dbname)
     monkeypatch.setenv("SCRAPP_SKIP_WARMUP", "1")
     monkeypatch.setenv("INVITE_CODE", "")  # open sign-up unless a test sets a code
+    monkeypatch.setenv("EMBED_ENABLED", "0")  # hunt tests are SIFT-only unless a test installs an embedder
     from app import db as dbmod
     from app.config import get_settings
     get_settings.cache_clear()

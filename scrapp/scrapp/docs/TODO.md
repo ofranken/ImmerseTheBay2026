@@ -21,8 +21,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
 
 ## Scavenger hunt (built; hardened, see Done)
-- [ ] Verify on real glasses and ARCore: SIFT matching only suits flat, textured targets (paintings, signs, posters).
-  Generic objects (a cup, a plant) need an embedding vote (CLIP/DINO) before they match reliably.
+- [ ] Verify hunt matching on real glasses and ARCore. SIFT handles flat, textured targets (posters, paintings, signs). A DINOv2
+  appearance fallback now covers non-flat objects (`services/embedding_match.py`), but its thresholds were calibrated on pasted-object
+  tests only (7/17 true, 0/17 false); tune them with real glasses photos.
 - [ ] Hunt map view, per-item radius/title editing, leaderboard.
 
 ## Security and housekeeping

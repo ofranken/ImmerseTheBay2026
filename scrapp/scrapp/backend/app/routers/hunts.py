@@ -19,6 +19,7 @@ from ..config import get_settings
 from ..db import db
 from ..schemas import HuntIn
 from ..security import current_user, file_url
+from ..services.embedding_match import get_embedder, match_embedding
 from ..services.matching import crop_target, haversine_m, match
 from ..services.pipeline import process_capture
 from ..storage import get_bytes, put_bytes
@@ -160,6 +161,7 @@ async def attempt(
     query = _decode_bgr(await get_bytes(cap["original_file_id"]))
 
     best = None
+    candidates = []  # (item, decoded target) for the unfound, in-range items: reused by the appearance fallback
     for it in h["items"]:
         if it["item_id"] in found:
             continue
@@ -170,16 +172,28 @@ async def attempt(
             if haversine_m(lat, lng, m.lat, m.lng) > slack:
                 continue
         target = _decode_bgr(await get_bytes(it["target_file_id"]))
+        candidates.append((it, target))
         r = await asyncio.to_thread(match, query, target, s.match_min_inliers, s.match_min_inlier_ratio)
         if r.matched and (best is None or r.inliers > best[1].inliers):
             best = (it, r)
 
-    if best is None:
-        return {"matched": False, "capture": capture_out(cap), "hunt": await _hunt_out(h, user["_id"])}
-    item, r = best
-    hunt = await _mark_found(h, user["_id"], item["item_id"], "glasses", cap["_id"])
-    found_item = next(i for i in hunt["items"] if i["item_id"] == item["item_id"])
-    return {"matched": True, "item": found_item, "inliers": r.inliers, "capture": capture_out(cap), "hunt": hunt}
+    if best is not None:  # SIFT is primary: precise on flat, textured targets
+        item, r = best
+        hunt = await _mark_found(h, user["_id"], item["item_id"], "glasses", cap["_id"])
+        found_item = next(i for i in hunt["items"] if i["item_id"] == item["item_id"])
+        return {"matched": True, "method": "sift", "item": found_item, "inliers": r.inliers, "capture": capture_out(cap), "hunt": hunt}
+
+    # SIFT missed: try appearance matching for 3D / non-flat things (optional; skipped if the model is unavailable).
+    embedder = get_embedder(s) if candidates else None
+    if embedder is not None:
+        er = await asyncio.to_thread(
+            match_embedding, embedder, query, [(it["item_id"], str(it["target_file_id"]), tgt) for it, tgt in candidates], s)
+        if er.matched:
+            hunt = await _mark_found(h, user["_id"], er.item_id, "glasses_embedding", cap["_id"])
+            found_item = next(i for i in hunt["items"] if i["item_id"] == er.item_id)
+            return {"matched": True, "method": "embedding", "item": found_item, "score": round(er.score, 3),
+                    "capture": capture_out(cap), "hunt": hunt}
+    return {"matched": False, "capture": capture_out(cap), "hunt": await _hunt_out(h, user["_id"])}
 
 
 @router.post("/{hunt_id}/items/{item_id}/found")

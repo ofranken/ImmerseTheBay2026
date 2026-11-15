@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     match_min_inlier_ratio: float = 0.2
     hunt_default_radius_m: float = 150.0
 
+    # Hunt appearance matching (DINOv2 embeddings), tried only when SIFT finds nothing. Optional: if the model cannot be
+    # loaded the hunt silently stays SIFT-only. CPU by default so it never competes with SAM for the GPU.
+    embed_enabled: bool = True
+    embed_model: str = "vit_small_patch14_dinov2.lvd142m"
+    embed_device: str = "cpu"
+    embed_min_score: float = 0.35  # best view-vs-target cosine similarity (calibrated: 0 of 17 false accepts)
+    embed_margin: float = 0.05     # lead over the runner-up item
+    embed_standout: float = 0.08   # best view minus the mean over views (the distractor baseline)
+
     meshy_api_key: str = ""
     meshy_base_url: str = "https://api.meshy.ai/openapi"
     # Model: "meshy-6-lite" is the cheap one (text preview 5 credits, image+texture 15); "latest" (Meshy 7.1) looks

@@ -148,7 +148,7 @@ Animations: wiggle, bob, spin, pop. Each sticker also does an elastic "pop" when
    The glasses say "Found Starry Night. 2 of 5."
 4. Or **Find with phone camera**: the AR view tracks every remaining target, pops the sticker onto the artwork and checks it off.
 
-The geofence narrows the candidates and the image decides. Indoor GPS is too rough to say *which* painting, but a homography match on a flat, textured artwork is very reliable. For sculptures, add an embedding vote (DINOv2/CLIP) next to SIFT.
+The geofence narrows the candidates and the image decides. Indoor GPS is too rough to say *which* painting, but a homography match on a flat, textured artwork is very reliable. For things that are not flat (a cup, a plant, a sculpture) there is an **appearance fallback**, used only when SIFT finds nothing (`services/embedding_match.py`): a DINOv2-small embedding (timm, CPU) of each unfound target crop is compared with embeddings of the attempt photo (whole frame, centre crop, 2x2 grid). An item counts as found only if its best view similarity is at least `EMBED_MIN_SCORE` (0.35), it leads the runner-up item by `EMBED_MARGIN` (0.05), and it stands out from the rest of the frame by `EMBED_STANDOUT` (0.08, the distractor baseline). The response says `method: "sift"` or `"embedding"`, and progress records `glasses` or `glasses_embedding`. It is optional: if the model cannot load, hunts silently stay SIFT-only (one log line). Calibration on pasted-object tests (rotated, rescaled, dimmed, new background): 7 of 17 true matches accepted, 0 of 17 false accepts. Thresholds are deliberately strict because a wrong tick-off is worse than a miss; tune with real glasses photos. Settings: `EMBED_ENABLED`, `EMBED_MODEL`, `EMBED_DEVICE`.
 
 Tests: `backend/tests/test_matching.py` (same artwork seen at an angle on a wall matches; a different artwork does not).
 
@@ -253,5 +253,5 @@ Next steps, roughly in order:
 3. SAM 3 text prompts for "scrapbook that <noun>"
 4. iOS Swift bridge
 5. Push notifications for shares
-6. Embedding vote for 3D hunt objects
+6. Embedding vote for 3D hunt objects: built as a SIFT fallback (see section 6); still to tune on real glasses photos
 7. Off-axis projection
