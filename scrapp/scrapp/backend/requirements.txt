@@ -11,4 +11,5 @@ httpx>=0.27
 numpy>=1.26
 opencv-python-headless>=4.10
 Pillow>=10.4
+segno>=1.6          # QR codes for the share-link sheet (GET /c/<token>/qr.png)
 pytest>=8

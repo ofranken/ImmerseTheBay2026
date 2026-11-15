@@ -35,6 +35,7 @@ flutter:
     - assets/web/textures/
     - assets/web/vendor/three/build/
     - assets/web/vendor/three/addons/controls/
+    - assets/web/vendor/three/addons/exporters/
     - assets/web/vendor/three/addons/loaders/
     - assets/web/vendor/three/addons/utils/
     - assets/web/vendor/three/addons/postprocessing/

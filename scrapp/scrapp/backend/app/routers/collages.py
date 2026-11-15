@@ -12,6 +12,9 @@ from ..db import db
 from ..schemas import SceneBackground
 from ..security import current_user, file_url
 from ..storage import delete, put_bytes
+
+MAX_SCENE_GLB_BYTES = 40 * 1024 * 1024  # the AR model of a whole collage; stickers are small, meshes dominate
+
 from ..util import clean, now, oid
 
 router = APIRouter(prefix="/collages", tags=["collages"])
@@ -52,11 +55,21 @@ async def _check_background(scene: dict, user: dict) -> None:
     scene["background"] = out
 
 
+async def _store_glb(upload: UploadFile, user: dict):
+    data = await upload.read(MAX_SCENE_GLB_BYTES + 1)
+    if len(data) > MAX_SCENE_GLB_BYTES:
+        raise HTTPException(413, "The 3D scene file is too big")
+    if data[:4] != b"glTF":
+        raise HTTPException(422, "scene_glb must be a binary glTF (.glb) file")
+    return await put_bytes(data, "collage.glb", "model/gltf-binary", user["_id"], "collage_scene_glb")
+
+
 @router.post("")
 async def create_collage(
     title: str = Form("Untitled collage"),
     scene: str = Form(...),
     thumbnail: UploadFile | None = File(None),
+    scene_glb: UploadFile | None = File(None),
     user=Depends(current_user),
 ):
     scene_doc = _scene(scene)
@@ -68,6 +81,8 @@ async def create_collage(
         "owner_id": user["_id"], "title": title, "scene": scene_doc,
         "thumbnail_file_id": thumb_id, "created_at": now(), "updated_at": now(),
     }
+    if scene_glb is not None:
+        doc["scene_glb_file_id"] = await _store_glb(scene_glb, user)
     res = await db().collages.insert_one(doc)
     doc["_id"] = res.inserted_id
     return collage_out(doc)
@@ -79,6 +94,7 @@ async def update_collage(
     title: str = Form(...),
     scene: str = Form(...),
     thumbnail: UploadFile | None = File(None),
+    scene_glb: UploadFile | None = File(None),
     user=Depends(current_user),
 ):
     c = await db().collages.find_one({"_id": oid(collage_id), "owner_id": user["_id"]})
@@ -90,8 +106,17 @@ async def update_collage(
     if thumbnail is not None:
         await delete(c.get("thumbnail_file_id"))
         upd["thumbnail_file_id"] = await put_bytes(await thumbnail.read(), "collage.png", "image/png", user["_id"], "collage_render")
-    await db().collages.update_one({"_id": c["_id"]}, {"$set": upd})
-    return collage_out({**c, **upd})
+    unset = {}
+    if scene_glb is not None:
+        new_glb = await _store_glb(scene_glb, user)
+        await delete(c.get("scene_glb_file_id"))
+        upd["scene_glb_file_id"] = new_glb
+    elif c.get("scene_glb_file_id") and scene_doc != c.get("scene"):
+        # The scene changed but no fresh AR model came with it: an old one would show the wrong collage in AR.
+        await delete(c["scene_glb_file_id"])
+        unset["scene_glb_file_id"] = ""
+    await db().collages.update_one({"_id": c["_id"]}, {"$set": upd, **({"$unset": unset} if unset else {})})
+    return collage_out({**{k: v for k, v in c.items() if k not in unset}, **upd})
 
 
 @router.get("")
@@ -151,6 +176,7 @@ async def delete_collage(collage_id: str, user=Depends(current_user)):
     if not c:
         raise HTTPException(404, "Not found")
     await delete(c.get("thumbnail_file_id"))
+    await delete(c.get("scene_glb_file_id"))
     await db().collages.delete_one({"_id": c["_id"]})
     return {"ok": True}
 
@@ -161,4 +187,4 @@ async def public_collage(token: str):
     if not c:
         raise HTTPException(404, "Not found")
     scene = await _resolve_scene_urls(c["scene"])
-    return {"title": c["title"], "scene": clean(scene)}
+    return {"title": c["title"], "scene": clean(scene), "has_ar": bool(c.get("scene_glb_file_id"))}

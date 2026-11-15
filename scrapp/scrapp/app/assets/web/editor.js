@@ -11,6 +11,8 @@ import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelated
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createViewerFx } from './viewer_fx.js';
+import { setupAr } from './viewer_ar.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const params = new URLSearchParams(location.search);
 // /c/<token> (the public viewer page) injects window.__SCRAPP_VIEW = { src, token, ar }; the app passes ?mode=view and pushes the scene in.
@@ -413,6 +415,47 @@ function sceneJson() {
   };
 }
 
+// The whole collage as ONE glTF binary (a standing display about 0.8 m wide, base at y=0), for "View in AR" on the public link.
+// Stickers become unlit, double-sided alpha cards (they look like the picture, not like a lit object); 3D models keep their materials.
+// Only what is inside the save zone is included, exactly like the exported picture.
+async function exportSceneGlb() {
+  let list = [...items.values()].filter(isInside);
+  if (!list.length) list = [...items.values()];
+  if (!list.length) throw new Error('nothing to export');
+  const root = new THREE.Group(); root.name = 'ScrappCollage';
+  for (const it of list) {
+    let node;
+    if (it.kind === 'mesh') {
+      node = it.object.clone(true);
+    } else {
+      const src = it.object.material;
+      const mat = new THREE.MeshBasicMaterial({ map: src.map, transparent: true, side: THREE.DoubleSide, alphaTest: 0.04 });
+      node = new THREE.Mesh(it.object.geometry, mat);
+      node.position.copy(it.object.position); node.quaternion.copy(it.object.quaternion); node.scale.copy(it.object.scale);
+    }
+    node.name = it.title || it.kind;
+    root.add(node);
+  }
+  const k = 0.8 / Math.max(zone.size.x, 0.2);             // the save zone is about 1.2-2.4 units wide; make that 0.8 m in AR
+  const holder = new THREE.Group();
+  holder.add(root);
+  holder.scale.setScalar(k);
+  holder.position.set(-zone.center.x * k, -(zone.center.y - zone.size.y / 2) * k, -zone.center.z * k);
+  const arScene = new THREE.Scene(); arScene.add(holder);
+  arScene.updateMatrixWorld(true);
+  return await new GLTFExporter().parseAsync(arScene, { binary: true, maxTextureSize: 1024, onlyVisible: false });
+}
+
+function b64Chunks(buffer, size = 400000) {
+  let bin = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  const b64 = btoa(bin);
+  const out = [];
+  for (let i = 0; i < b64.length; i += size) out.push(b64.slice(i, i + size));
+  return out;
+}
+
 function exportCamera(aspect) {
   const dir = camera.getWorldDirection(new THREE.Vector3());
   const r = zone.size.length() / 2;
@@ -506,6 +549,11 @@ async function exportCollage({ resolution = 2048, background: background_opt = '
   const CHUNK = 256 * 1024;
   const total = Math.ceil(b64.length / CHUNK);
   for (let i = 0; i < total; i++) post({ type: 'export_chunk', id, index: i, total, data: b64.slice(i * CHUNK, (i + 1) * CHUNK) });
+  // The AR model rides along with the picture. It is a bonus: if it fails the collage still saves (just without a View in AR button).
+  try {
+    const chunks = b64Chunks(await exportSceneGlb());
+    chunks.forEach((data, index) => post({ type: 'glb_chunk', id, index, total: chunks.length, data }));
+  } catch (err) { post({ type: 'glb_failed', id, message: String(err) }); }
   post({ type: 'export_done', id, width: out.width, height: out.height, scene: sceneJson() });
   return { width: out.width, height: out.height, bytes: b64.length * 0.75 };
 }
@@ -579,6 +627,7 @@ const api = {
       post({ type: 'error', message: String(err) });
     }
   },
+  async exportGlbBase64() { return b64Chunks(await exportSceneGlb(), 1 << 30).join(''); },   // for tests/tools
   _debug: { items, zone, scene, camera },
 };
 window.ScrappEditor = api;
@@ -602,6 +651,7 @@ async function showCollage(data) {
     post({ type: 'error', message: `viewer effects off: ${err}` });
   }
   post({ type: 'viewer_ready', ar: !!data.has_ar });
+  if (VIEW?.token && (VIEW.ar || data.has_ar)) setupAr({ glbUrl: VIEW.glb, onState: (s, e) => console.log('[scrapp] ar', s, e || '') });
 }
 
 async function startViewer() {

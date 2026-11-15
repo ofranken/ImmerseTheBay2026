@@ -53,6 +53,7 @@ def capture_out(c: dict) -> dict:
 def collage_out(c: dict) -> dict:
     d = clean(c)
     d["thumbnail_url"] = file_url(c.get("thumbnail_file_id"))
+    d["has_scene_glb"] = bool(d.pop("scene_glb_file_id", None))  # the AR model of the whole collage; served only via /c/<token>/scene.glb
     return d
 
 
