@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -10,7 +11,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../collage_background.dart';
 import '../models.dart';
+import '../services/ar_bridge.dart';
 import '../services/asset_server.dart';
+import '../services/collage_ar.dart';
 import '../state/library.dart';
 import '../state/social.dart';
 import '../theme/palette.dart';
@@ -47,6 +50,8 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
   Map<String, dynamic>? background; // scene.background as last reported by the editor (null = default paper)
   final _chunks = <String, List<String?>>{};
   final _glbChunks = <String, List<String?>>{}; // the AR model rides along with the picture
+  Completer<Map<String, dynamic>>? _sceneWait; // answers the editor's 'scene' reply (for View in AR)
+  bool openingAr = false;
 
   @override
   void initState() {
@@ -92,10 +97,47 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       case 'glb_failed':
         // not fatal: the collage saves anyway, it just gets no "View in AR" button on its link
         debugPrint('AR model export failed: ${m['message']}');
+      case 'scene':
+        _sceneWait?.complete(Map<String, dynamic>.from(m['scene'] as Map));
+        _sceneWait = null;
       case 'export_done':
         await _finishSave(m['id'] as String, Map<String, dynamic>.from(m['scene']));
       case 'error':
         if (mounted) toast(context, m['message'].toString());
+    }
+  }
+
+  /// Shows what is on screen now (unsaved edits included) in native AR, standing on a table, the floor or a wall.
+  Future<void> _viewInAr() async {
+    if (openingAr) return;
+    setState(() => openingAr = true);
+    try {
+      if (!await ArBridge.available()) {
+        if (mounted) toast(context, 'AR is not supported on this phone');
+        return;
+      }
+      final wait = _sceneWait = Completer<Map<String, dynamic>>();
+      await _cmd({'cmd': 'getScene'});
+      final scene = await wait.future.timeout(const Duration(seconds: 5));
+      if (!mounted) return;
+      final lib = context.read<Library>();
+      // Saved collages (including ones friends sent) get freshly signed URLs; new items come from your own library.
+      final saved = collageId == null ? null : await lib.collage(collageId!).then((c) => c.scene, onError: (_) => null);
+      final items = collageArItems(
+        scene,
+        urlByItemId: saved == null ? const {} : sceneUrls(saved),
+        urlByRefId: libraryUrls(lib.stickers, lib.meshes),
+      );
+      if (!await openCollageAr(title: title, items: items) && mounted) {
+        toast(context, 'Add a sticker or 3D model first');
+      }
+    } on TimeoutException {
+      if (mounted) toast(context, 'The editor did not answer. Try again.');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not open AR: $e');
+    } finally {
+      _sceneWait = null;
+      if (mounted) setState(() => openingAr = false);
     }
   }
 
@@ -356,8 +398,18 @@ class _CollageEditorScreenState extends State<CollageEditorScreen> {
       appBar: AppBar(
         title: GestureDetector(onTap: _rename, child: Text(title.toUpperCase(), overflow: TextOverflow.ellipsis)),
         actions: [
-          if (collageId != null)
-            IconButton(tooltip: 'View in 3D', icon: const Icon(Icons.threed_rotation_rounded), onPressed: _viewIn3d),
+          PopupMenuButton<String>(
+            tooltip: 'View in 3D or AR',
+            icon: const Icon(Icons.threed_rotation_rounded),
+            color: Palette.card,
+            enabled: ready && !openingAr,
+            onSelected: (v) => v == 'ar' ? _viewInAr() : _viewIn3d(),
+            itemBuilder: (_) => [
+              if (collageId != null)
+                const PopupMenuItem(value: '3d', child: ListTile(leading: Icon(Icons.threed_rotation_rounded), title: Text('View in 3D'))),
+              const PopupMenuItem(value: 'ar', child: ListTile(leading: Icon(Icons.view_in_ar_rounded), title: Text('View in AR (place it in your room)'))),
+            ],
+          ),
           if (collageId != null)
             IconButton(tooltip: 'Share 3D link', icon: const Icon(Icons.qr_code_2_rounded), onPressed: () => showShareLinkSheet(context, collageId: collageId!, title: title)),
           IconButton(tooltip: 'Background', icon: const Icon(Icons.wallpaper_rounded), onPressed: _backgroundSheet),

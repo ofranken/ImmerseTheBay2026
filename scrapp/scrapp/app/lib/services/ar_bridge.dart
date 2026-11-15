@@ -34,6 +34,10 @@ class ArBridge {
     return (r ?? []).map((e) => e.toString()).toList();
   }
 
+  /// Shows a whole collage (stickers + 3D models, see services/collage_ar.dart) placed on a table, floor or wall.
+  static Future<void> openCollage({required String title, required List<Map<String, dynamic>> items}) =>
+      _m.invokeMethod<List<dynamic>>('openCollage', {'title': title, 'items': items});
+
   static Future<bool> available() async => await _m.invokeMethod<bool>('available') ?? false;
 }
 

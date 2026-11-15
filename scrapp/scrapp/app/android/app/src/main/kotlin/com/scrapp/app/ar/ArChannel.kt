@@ -8,7 +8,7 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
 
-/** Flutter -> native AR. Opens [ScrappArActivity] and returns the ids found/anchored. */
+/** Flutter -> native AR. Opens [ScrappArActivity] (returns the ids found/anchored) or [CollageArActivity] (a whole collage). */
 class ArChannel(private val activity: MainActivity, messenger: BinaryMessenger) {
     private var pending: MethodChannel.Result? = null
 
@@ -21,6 +21,12 @@ class ArChannel(private val activity: MainActivity, messenger: BinaryMessenger) 
                     pending = result
                     val req = JSONObject(call.arguments as Map<*, *>).toString()
                     activity.arLauncher.launch(Intent(activity, ScrappArActivity::class.java).putExtra(ScrappArActivity.EXTRA_REQUEST, req))
+                }
+                "openCollage" -> {
+                    pending?.success(emptyList<String>())
+                    pending = result
+                    val req = JSONObject(call.arguments as Map<*, *>).toString()
+                    activity.arLauncher.launch(Intent(activity, CollageArActivity::class.java).putExtra(CollageArActivity.EXTRA_REQUEST, req))
                 }
                 else -> result.notImplemented()
             }

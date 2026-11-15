@@ -73,6 +73,12 @@
             android:screenOrientation="portrait"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
 
+        <activity
+            android:name=".ar.CollageArActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
         <service
             android:name=".glasses.GlassesService"
             android:exported="false"

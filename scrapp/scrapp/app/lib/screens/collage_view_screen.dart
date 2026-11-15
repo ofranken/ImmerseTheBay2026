@@ -6,6 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../models.dart';
 import '../services/asset_server.dart';
+import '../services/collage_ar.dart';
 import '../state/library.dart';
 import '../theme/palette.dart';
 import '../widgets/paper.dart';
@@ -57,6 +58,11 @@ class _CollageViewScreenState extends State<CollageViewScreen> {
         appBar: AppBar(
           title: Text(widget.collage.title.toUpperCase(), overflow: TextOverflow.ellipsis),
           actions: [
+            IconButton(
+              tooltip: 'View in AR',
+              icon: const Icon(Icons.view_in_ar_rounded),
+              onPressed: () => viewSavedCollageInAr(context, collageId: widget.collage.id, title: widget.collage.title),
+            ),
             IconButton(
               tooltip: 'Share 3D link',
               icon: const Icon(Icons.qr_code_2_rounded),
