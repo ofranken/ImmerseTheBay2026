@@ -12,6 +12,7 @@ import '../theme/palette.dart';
 import '../theme/theme.dart';
 import '../widgets/paper.dart';
 import '../widgets/share_dialog.dart';
+import 'hunt_scan_screen.dart';
 
 class HuntsScreen extends StatelessWidget {
   const HuntsScreen({super.key});
@@ -296,7 +297,10 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
                   },
           ),
           const SizedBox(height: 10),
-          ScrappButton(label: 'Find with phone camera', icon: Icons.center_focus_strong_rounded, style: ScrappButtonStyle.quiet, expand: true, onPressed: () => _findWithPhone(h)),
+          ScrappButton(label: 'Scan with phone camera', icon: Icons.center_focus_strong_rounded, style: ScrappButtonStyle.quiet, expand: true, onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HuntScanScreen(huntId: h.id)))),
+          const SizedBox(height: 4),
+          const Text('Opens the camera and scans for your finds. Point it at one, fill the frame, hold steady (or tap Scan now).', textAlign: TextAlign.center, style: TextStyle(color: Palette.inkSoft, fontSize: 12.5)),
+          if (h.items.any((i) => i.targetUrl != null && !i.found)) TextButton(onPressed: () => _findWithPhone(h), child: const Text('Flat picture or poster? Use AR tracking')),
           const SectionTitle('Finds'),
           for (final i in h.items) _ItemCard(item: i, here: here),
           if (h.isOwner && players.isNotEmpty) ...[

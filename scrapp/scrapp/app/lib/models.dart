@@ -147,6 +147,33 @@ class Hunt {
 }
 
 /// One player's progress in a hunt (owner view).
+/// What the server saw in one phone-camera scan (/hunts/{id}/attempt -> "scan").
+class ScanResult {
+  ScanResult(this.j);
+  final Map<String, dynamic> j;
+  Map<String, dynamic> get scan => Map<String, dynamic>.from((j['scan'] as Map?) ?? {});
+  bool get matched => j['matched'] == true;
+  /// matched | close | none
+  String get status => matched ? 'matched' : (scan['status'] as String? ?? 'none');
+  String? get foundTitle {
+    if (!matched) return null;
+    final item = j['item'];
+    return item is Map ? item['title']?.toString() : null;
+  }
+  String? get bestTitle => scan['best_title'] as String?;
+  double get score => (scan['score'] as num?)?.toDouble() ?? 0;
+  String get reason => scan['reason'] as String? ?? '';
+  bool get allTooFar => ((scan['out_of_range'] as num?) ?? 0) > 0 && reason.contains('too far');
+  /// Plain-language line for the scan overlay.
+  String get message {
+    if (matched) return 'Matched "$foundTitle"!';
+    if (allTooFar) return 'You are too far from where these were found. Walk to the spot, or ask the owner to widen the radius.';
+    if (reason.contains('unavailable')) return 'The server can\'t match objects right now. Try again in a minute.';
+    if (status == 'close') return 'Close! Is that ${bestTitle ?? 'one of the finds'}? Move closer, fill the frame with it, hold steady.';
+    return 'Not recognised. Fill the frame with one find, in good light, hold steady.';
+  }
+}
+
 class HuntPlayer {
   HuntPlayer(this.j);
   final Map<String, dynamic> j;

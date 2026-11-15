@@ -146,7 +146,7 @@ def decide(views: np.ndarray, targets: dict[str, np.ndarray], min_score: float, 
         return EmbeddingResult(False, reason="no remaining items")
     scored = []
     for item_id, t in targets.items():
-        sims = views @ t
+        sims = (views @ np.atleast_2d(t).T).max(axis=1)  # a target may have several embeddings (photo + object cut-out)
         scored.append((item_id, float(sims.max()), float(sims.max() - sims.mean())))
     scored.sort(key=lambda s: s[1], reverse=True)
     ranking = [(i, round(s, 4)) for i, s, _ in scored]
@@ -167,5 +167,8 @@ def match_embedding(embedder: Embedder, query_bgr: np.ndarray, items: list[tuple
     if not items:
         return EmbeddingResult(False, reason="no remaining items")
     views = embedder.embed(query_views(query_bgr))
-    targets = {iid: cache.get(fid, lambda img=img: embedder.embed([img])[0]) for iid, fid, img in items}
+    targets: dict[str, np.ndarray] = {}
+    for iid, fid, img in items:  # several rows per item are allowed: the photo crop and the object cut-out
+        vec = cache.get(fid, lambda img=img: embedder.embed([img])[0])
+        targets[iid] = np.vstack([targets[iid], vec]) if iid in targets else np.atleast_2d(vec)
     return decide(views, targets, settings.embed_min_score, settings.embed_margin, settings.embed_standout)

@@ -57,7 +57,8 @@ class Settings(BaseSettings):
     embed_enabled: bool = True
     embed_model: str = "vit_small_patch14_dinov2.lvd142m"
     embed_device: str = "cpu"
-    embed_min_score: float = 0.35  # best view-vs-target cosine similarity (calibrated: 0 of 17 false accepts)
+    embed_min_score: float = 0.5  # own-object views score 0.77+ on desk objects, wrong objects and bare desk <= 0.39 (hunt "nates desk" calibration)
+    embed_close_score: float = 0.35  # below min_score but this high = 'close' feedback in the phone scanner
     embed_margin: float = 0.05     # lead over the runner-up item
     embed_standout: float = 0.08   # best view minus the mean over views (the distractor baseline)
 

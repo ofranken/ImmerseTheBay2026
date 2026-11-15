@@ -131,3 +131,26 @@ def test_hunt_survives_a_deleted_sticker(api):
     assert c.delete(f"/stickers/{sid}", headers=olivia).status_code == 200
     got = c.get(f"/hunts/{hid}", headers=olivia).json()
     assert got["items"][0]["sticker"] is None and got["items"][0]["target_url"]
+
+
+def test_phone_scan_reports_what_it_saw_and_leaves_no_trace_on_a_miss(api):
+    c = api
+    olivia, _ = _user(c, "scanner1")
+    art = _artwork(1)
+    hid = _hunt(c, olivia, _make_sticker(c, olivia, art))["id"]
+    before = len(c.get("/captures", headers=olivia).json())
+
+    def scan(img, **kw):
+        meta = '{"lat": %f, "lng": %f, "accuracy_m": 10}' % (kw.get("lat", LAT), kw.get("lng", LNG))
+        return c.post(f"/hunts/{hid}/attempt?scan=true", headers=olivia, files={"image": ("a.jpg", _jpg(img), "image/jpeg")}, data={"meta": meta}).json()
+
+    miss = scan(_gallery_photo(_artwork(2)))
+    assert miss["matched"] is False and miss["scan"]["status"] in ("none", "close") and "threshold" in miss["scan"]
+    assert len(c.get("/captures", headers=olivia).json()) == before  # a probe that finds nothing is not a scrapbook capture
+
+    far = scan(_gallery_photo(art), lat=LAT + 0.5)
+    assert far["matched"] is False and "too far" in far["scan"]["reason"] and far["scan"]["out_of_range"] == 1
+
+    hit = scan(_gallery_photo(art))
+    assert hit["matched"] is True and hit["scan"]["status"] == "matched" and hit["hunt"]["completed"] is True
+    assert len(c.get("/captures", headers=olivia).json()) == before + 1  # the match is kept

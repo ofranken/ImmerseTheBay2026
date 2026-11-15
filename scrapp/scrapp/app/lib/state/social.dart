@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -116,6 +117,14 @@ class Social extends ChangeNotifier {
 
   Future<Hunt> markFound(String huntId, String itemId) async =>
       _replace(Hunt(Map<String, dynamic>.from(await api.post('/hunts/$huntId/items/$itemId/found'))));
+
+  /// One phone-camera scan: uploads the frame; the server tries SIFT then object appearance and returns what it saw.
+  Future<ScanResult> scanHunt(String huntId, String path, {double? lat, double? lng, double? accuracy}) async {
+    final meta = {'trigger': 'app', if (lat != null) 'lat': lat, if (lng != null) 'lng': lng, if (accuracy != null) 'accuracy_m': accuracy};
+    final r = Map<String, dynamic>.from(await api.upload('/hunts/$huntId/attempt?scan=true', fileField: 'image', filePath: path, fields: {'meta': jsonEncode(meta)}));
+    if (r['hunt'] is Map) _replace(Hunt(Map<String, dynamic>.from(r['hunt'])));
+    return ScanResult(r);
+  }
 
   /// Loads one hunt (e.g. opened from the share inbox before the list has it).
   Future<Hunt> fetchHunt(String id) async => _replace(Hunt(Map<String, dynamic>.from(await api.get('/hunts/$id'))));

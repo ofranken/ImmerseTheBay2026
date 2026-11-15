@@ -227,3 +227,10 @@ def test_real_model_prefers_the_same_artwork_under_a_new_viewpoint(real):
     assert (same @ target).max() > (diff @ target).max()
     r = decide(same, {"a": target, "b": real.embed([other])[0]}, 0.0, 0.0, 0.0)
     assert r.item_id == "a"
+
+
+def test_item_with_several_target_embeddings_uses_the_best_one():
+    """Photo crop (desk and all) plus the object cut-out: a view matching either counts."""
+    targets = {"mouse": np.vstack([unit(0, 1, 0), unit(1, 0, 0)]), "can": unit(0, 0, 1)}
+    r = decide(np.stack([unit(1, 0.02, 0)]), targets, min_score=0.5, margin=0.1, standout=0.0)
+    assert r.matched and r.item_id == "mouse" and r.score > 0.99
