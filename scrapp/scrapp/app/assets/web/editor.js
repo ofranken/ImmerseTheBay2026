@@ -172,7 +172,7 @@ async function addMesh(spec) {
   // Normalise to ~0.5 units tall, centred on its base.
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
-  const k = 0.5 / Math.max(size.x, size.y, size.z, 1e-6);
+  const k = (spec.fit || 0.5) / Math.max(size.x, size.y, size.z, 1e-6);
   const holder = new THREE.Group();
   root.scale.setScalar(k);
   root.position.set(-(box.min.x + size.x / 2) * k, -box.min.y * k, -(box.min.z + size.z / 2) * k);
@@ -528,17 +528,33 @@ async function startModelPreview() {
   updateZone();
   grid.visible = false;
   controls.autoRotate = true;
+  // The preview is the model on its own: fill it (it used to float small in the frame) and light it from several sides,
+  // because black or dark PBR models vanished under the single key light used for collages.
+  camera.position.set(2.2, 1.5, 3.0);
+  controls.target.set(zone.center.x, zone.center.y + 0.4, zone.center.z);
+  controls.minDistance = 0.8;
+  controls.maxDistance = 6;
+  controls.update();
+  scene.children.filter((o) => o.isHemisphereLight).forEach((o) => { o.intensity = 3.2; });
+  sun.intensity = 2.4;
+  const fill = new THREE.DirectionalLight(0xfff1de, 1.6);
+  fill.position.set(-3, 2, 2);
+  const rim = new THREE.DirectionalLight(0xdfeaff, 1.8);
+  rim.position.set(0, 3, -4);
+  const under = new THREE.DirectionalLight(0xffffff, 0.9);
+  under.position.set(0, -2, 3);
+  scene.add(fill, rim, under);
   const grass = await texLoader.loadAsync('textures/fuzz_grass.jpg');
   grass.colorSpace = THREE.SRGBColorSpace;
   grass.wrapS = grass.wrapT = THREE.RepeatWrapping;
   grass.repeat.set(2, 2);
-  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.6, 0.08, 64),
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.75, 0.08, 64),
     new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
   pedestal.position.copy(zone.center).setY(zone.center.y - 0.04);
   helpers.add(pedestal);
   const src = params.get('src');
   if (src) {
-    const it = await addMesh({ url: src, position: zone.center.toArray() });
+    const it = await addMesh({ url: src, position: zone.center.toArray(), fit: 0.95 });
     it.outline.visible = false;
     selected = null;
   }

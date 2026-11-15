@@ -21,6 +21,10 @@ class Library extends ChangeNotifier {
   String? loadError; // set while the last full load failed (offline at startup, server down)
   Timer? _meshPoll;
   Timer? _retry;
+  final _finished = StreamController<MeshJob>.broadcast();
+
+  /// Fires once when a 3D job reaches a final state (ready or failed) while the app is open.
+  Stream<MeshJob> get meshFinished => _finished.stream;
   int _attempts = 0;
 
   /// Loads everything. If it fails (network down at startup) it keeps retrying with a growing delay
@@ -154,7 +158,9 @@ class Library extends ChangeNotifier {
         final m = meshes[i];
         if (m.done || m.failed) continue;
         try {
-          meshes[i] = MeshJob(Map<String, dynamic>.from(await api.get('/meshes/${m.id}')));
+          final updated = MeshJob(Map<String, dynamic>.from(await api.get('/meshes/${m.id}')));
+          meshes[i] = updated;
+          if (updated.done || updated.failed) _finished.add(updated);
         } catch (_) {}
       }
       notifyListeners();
@@ -164,6 +170,7 @@ class Library extends ChangeNotifier {
 
   @override
   void dispose() {
+    _finished.close();
     _retry?.cancel();
     _meshPoll?.cancel();
     super.dispose();

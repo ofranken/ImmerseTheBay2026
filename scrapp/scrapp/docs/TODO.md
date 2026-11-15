@@ -6,10 +6,10 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [x] **Sticker to 3D** (Meshy image-to-3D). Verified on real Meshy: sticker -> GLB in ~45 s, 15 credits, ~15k
   triangles / 1.5 MB, thumbnail and model stored on our server, double-tap does not bill twice.
   - [x] On-phone flow checked: sticker screen -> "View the 3D model" -> turntable preview -> added to a collage.
-  - [ ] 3D preview looks small and dark for black objects: enlarge the model on the pedestal and brighten the lights.
+  - [x] 3D preview: model enlarged to fill the pedestal, four-way lighting so black objects read (checked in a headless render, not yet on the phone).
   - [ ] Warn or block when a sticker is not a coherent object (floor, window and wall fragments make bad models).
   - [ ] Optional "better quality" button that re-runs a hero sticker with `MESHY_AI_MODEL=latest` (~2x credits).
-  - [ ] Tell the user when a model finishes (notification) so they don't have to watch the progress bar.
+  - [x] Model-finished notice: a floating message with a "View" button and a buzz, on whatever screen is open. In-app only: polling stops when the app is in the background, so a system notification would need server push (FCM).
 
 ## Next
 - [ ] **Friends sharing, app side.** The backend is verified on Atlas (request, accept, share, inbox, hunts). Still to check on a device: the Friends tab, share sheets, and sharing 3D models.
