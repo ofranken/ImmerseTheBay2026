@@ -1,10 +1,10 @@
 package com.scrapp.app.glasses
 
 /**
- * Finds "scrapbook that" in glasses transcripts. Speech recognizers mangle the coined word
+ * Finds "scrap that" (and the older "scrapbook that") in glasses transcripts. Speech recognizers mangle the coined word
  * ("scrap book that", "scrapple that", even "Scrabble cat"), so matching is fuzzy and
  * tolerant of the word split. Anything after the phrase becomes an optional object prompt:
- * "scrapbook that lamp" -> prompt "lamp" (used by a text-promptable segmenter such as SAM 3).
+ * "scrap that lamp" -> prompt "lamp" (used by a text-promptable segmenter such as SAM 3).
  *
  * "found it" is the scavenger-hunt check-off: it only does anything while a hunt is active (see GlassesManager),
  * where it takes a photo and checks it against the hunt's remaining finds.
@@ -15,6 +15,7 @@ object VoiceCommandMatcher {
     private val wakeVariants = listOf(
         "scrapbook", "scrap book", "scrapbooks", "scrap books", "scrapple", "scrabble",
         "scrap but", "scrap boo", "scrapbooking", "scrap that",
+        "scrap", "scraps", "scrapped", // the real phrase is "scrap that"; "scrapbook that" is still accepted
     )
     private val objectWords = setOf("that", "this", "it", "dat", "cat", "these", "those")
     // Hunt check-off. "got it" is left out on purpose: people say it constantly in ordinary conversation.

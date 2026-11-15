@@ -89,7 +89,7 @@ class _BookScreenState extends State<BookScreen> {
                 EmptyNote(
                   icon: Icons.style_rounded,
                   title: received ? 'No gifts yet' : (starredOnly && all.isNotEmpty ? 'No starred scrapps' : 'Your book is empty'),
-                  body: received ? 'Stickers friends send you land here.' : (starredOnly && all.isNotEmpty ? 'Tap All, then star the ones you want here.' : 'Every "scrapbook that" turns the things in view into stickers.'),
+                  body: received ? 'Stickers friends send you land here.' : (starredOnly && all.isNotEmpty ? 'Tap All, then star the ones you want here.' : 'Every "scrap that" turns the things in view into stickers.'),
                 ),
               ],
             ]),

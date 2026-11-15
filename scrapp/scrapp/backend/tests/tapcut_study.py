@@ -54,7 +54,7 @@ def strategies():
 
 
 def concept_strategies():
-    """Strategies that also see SAM 3's whole-object concept masks (the same candidates 'scrapbook that' uses)."""
+    """Strategies that also see SAM 3's whole-object concept masks (the same candidates 'scrap that' uses)."""
     def contains(c, x, y):
         return bool(c.mask[y, x])
 

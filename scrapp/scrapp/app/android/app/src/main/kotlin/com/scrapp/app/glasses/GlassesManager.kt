@@ -70,7 +70,7 @@ import org.json.JSONObject
 /**
  * Owns the Meta Wearables session for the whole app process.
  *
- * Triggers: on-glasses speech ("scrapbook that"), the physical capture button (Inputs), or the
+ * Triggers: on-glasses speech ("scrap that"), the physical capture button (Inputs), or the
  * app. Each trigger grabs a still from the glasses camera stream, tags it with GPS and writes it
  * to the [Outbox]; Flutter uploads it. Everything here keeps running inside [GlassesService]
  * while the phone is locked in a pocket.

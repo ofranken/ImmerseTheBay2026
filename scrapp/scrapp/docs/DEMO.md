@@ -25,8 +25,8 @@ New sign-ups need the invite code from `backend/.env` (`INVITE_CODE`). The demo 
 
 ## The script (about 6 minutes)
 
-1. **Capture (1 min).** Wearing the glasses, look at an object and say **"scrapbook that"**. The glasses say "Scrapbooking"; seconds later the
-   cut-out sticker appears under *Recent captures* and in the **Book**. Say **"scrapbook that lamp"** to name it.
+1. **Capture (1 min).** Wearing the glasses, look at an object and say **"scrap that"**. The glasses say "Scrapbooking"; seconds later the
+   cut-out sticker appears under *Recent captures* and in the **Book**. Say **"scrap that lamp"** to name it.
 2. **The Book (30 s).** Open **Book**: it shows starred stickers; flip **Starred / All**, star one, delete one. Tap a sticker, then
    **See it in AR** to drop it on a table.
 3. **3D (1 min).** Open the **teddy bear** sticker, **View the 3D model** (already built; making a new one takes about 45 seconds and 15 Meshy credits).
@@ -48,7 +48,7 @@ New sign-ups need the invite code from `backend/.env` (`INVITE_CODE`). The demo 
 | Stickers take long | The first photo after a restart loads SAM 3 (about 10 s); after that a photo takes about 15 s. `scrapp-api` logs: `journalctl --user -u scrapp-api -f` |
 | A picture doesn't match | Fill most of the view with the screen, hold still for a second, raise the screen brightness, remove reflections (angle the laptop away from lamps or windows). A little tilt is fine. The "Find with phone camera" button on the hunt is the backup (ARCore) |
 | Stripey bands (moire) on the screen | Move a little closer or further away, or tilt the screen a few degrees; it is normal and matching tolerates it |
-| "found it" is not heard | Say "scrapbook that" instead (it checks the hunt too), or press the capture button on the glasses |
+| "found it" is not heard | Say "scrap that" instead (it checks the hunt too), or press the capture button on the glasses |
 | Glasses won't connect | Use **Photo** on the Scrap tab (phone camera/gallery): it runs the same pipeline and checks the active hunt |
 | Hunt says too far away | The seeded hunt allows 30 km around Stanford; if you are elsewhere, re-seed with a different `LAT, LNG` or use "Find with phone camera" |
 
@@ -76,7 +76,7 @@ background). It needs the laptop on, the tunnel up and Mullvad off, like everyth
 ## Hunting without a screen: real flat things at the venue
 
 If you want to hunt real objects (a book cover, a laptop sticker, a sign, a poster on a wall), make the hunt in the app: scrapbook the thing
-("scrapbook that"), open **Hunts, Create a hunt**, tick the stickers and send it. Matching works best on **flat, high-contrast, textured** things
+("scrap that"), open **Hunts, Create a hunt**, tick the stickers and send it. Matching works best on **flat, high-contrast, textured** things
 (covers, stickers with logos or text, signage, posters). Plain or shiny 3D objects (a mug, a plant) match poorly with SIFT; the optional DINOv2
 fallback helps a little but its thresholds are untuned on real photos.
 

@@ -17,7 +17,7 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] **Background job system** (reading (b) of the old "Background system" item): a server-side queue/worker so captures,
   sticker cutting and 3D jobs keep running and retry on their own, and the app is told when they finish.
   (Collage backdrops, reading (a), shipped: see Done.)
-- [ ] Confirm Meta's Developer Center approval for the "scrapbook that" / "found it" voice commands on real glasses.
+- [ ] Confirm Meta's Developer Center approval for the "scrap that" / "found it" voice commands on real glasses.
 - [ ] **Tap-to-cut: make the whole-object fix fast.** Measured on the COCO eval set (`python -m tests.tapcut_study --concepts`), preferring a whole-object concept mask over the tapped part lifts the hit rate from 59% to 76% (dev) and 82% (holdout). It is built (`choose_whole_object`, `TAP_WHOLE_OBJECT=1`) but OFF by default because it adds ~8 s per tap (70-noun vocabulary). Using only the first 36 nouns plus centre points costs ~5 s with the same gain; centre points alone cost ~0.7 s and are unmeasured. Next: measure centre-point-only and tap-centred points, then enable.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
 

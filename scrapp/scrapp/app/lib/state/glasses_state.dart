@@ -25,7 +25,7 @@ class FeedItem {
 }
 
 /// Glasses connection + the capture pipeline:
-/// trigger ("scrapbook that" / capture button / app) -> native photo + GPS saved to the outbox
+/// trigger ("scrap that" / capture button / app) -> native photo + GPS saved to the outbox
 /// -> upload original -> SAM stickers on the server (or hunt check-off) -> spoken result.
 class GlassesState extends ChangeNotifier {
   GlassesState(this.app, this.library, this.social);

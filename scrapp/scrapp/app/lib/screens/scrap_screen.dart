@@ -54,7 +54,7 @@ class ScrapScreen extends StatelessWidget {
             child: Row(children: [
               const Icon(Icons.travel_explore_rounded, size: 30),
               const SizedBox(width: 12),
-              Expanded(child: Text('Hunt on: ${g.activeHunt!.title}\n${g.activeHunt!.foundCount}/${g.activeHunt!.total} found. "Scrapbook that" checks finds.',
+              Expanded(child: Text('Hunt on: ${g.activeHunt!.title}\n${g.activeHunt!.foundCount}/${g.activeHunt!.total} found. "Scrap that" checks finds.',
                   style: const TextStyle(fontWeight: FontWeight.w800))),
               IconButton(tooltip: 'End hunt', icon: const Icon(Icons.close_rounded), onPressed: () => g.setActiveHunt(null)),
             ]),
@@ -77,7 +77,7 @@ class ScrapScreen extends StatelessWidget {
         ],
         SectionTitle('Recent captures', trailing: lib.loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : null),
         if (lib.captures.isEmpty)
-          const EmptyNote(icon: Icons.photo_camera_back_rounded, title: 'Nothing scrapbooked yet', body: 'Put on your glasses, look at something you love and say "scrapbook that".')
+          const EmptyNote(icon: Icons.photo_camera_back_rounded, title: 'Nothing scrapbooked yet', body: 'Put on your glasses, look at something you love and say "scrap that".')
         else
           SizedBox(
             height: 132,
@@ -164,7 +164,7 @@ class _GlassesCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             g.armed
-                ? 'Say "scrapbook that" or press the capture button. Works with your phone in your pocket.'
+                ? 'Say "scrap that" or press the capture button. Works with your phone in your pocket.'
                 : 'Starting keeps a connection to your glasses open so voice and the capture button work hands-free.',
             style: const TextStyle(color: Palette.inkSoft),
           ),

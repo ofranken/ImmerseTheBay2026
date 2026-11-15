@@ -293,7 +293,7 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
                     final started = await context.read<Social>().startHunt(h.id);
                     await glasses.setActiveHunt(started);
                     if (!glasses.armed) await glasses.arm();
-                    if (context.mounted) toast(context, 'Say "scrapbook that" when you find one.');
+                    if (context.mounted) toast(context, 'Say "scrap that" when you find one.');
                   },
           ),
           const SizedBox(height: 10),

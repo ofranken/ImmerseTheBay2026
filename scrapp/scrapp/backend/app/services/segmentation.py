@@ -105,7 +105,7 @@ class Sam3Segmenter:
     """SAM 3 image model (promptable concept segmentation) plus its SAM-style point predictor.
 
     SAM 3 has no "segment everything" mode, so `auto_masks` has two paths:
-      * a spoken noun ("scrapbook that cup") is the text prompt;
+      * a spoken noun ("scrap that cup") is the text prompt;
       * with no noun, generic concept words ("object", "thing") find almost nothing, so instead we tap a
         small grid of points around the frame centre with the point predictor. That is the head-direction
         prior: the wearer is facing what they care about.
@@ -295,7 +295,7 @@ def rank_candidates(
 ) -> list[MaskCandidate]:
     """Score masks by centrality, size and model quality; drop background-like masks; dedupe parts.
 
-    `named=True` means the wearer said what they wanted ("scrapbook that chair"), so big or
+    `named=True` means the wearer said what they wanted ("scrap that chair"), so big or
     frame-touching masks are not treated as background.
 
     Returns at most k candidates, best (the hero sticker) first.

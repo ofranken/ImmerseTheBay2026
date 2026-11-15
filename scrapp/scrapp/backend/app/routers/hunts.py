@@ -4,7 +4,7 @@ Creation: each item points at a sticker; the server crops the matching region ou
 ORIGINAL photo and stores it as the item's visual target (used for glasses matching and as the
 ARCore augmented-image reference on the phone).
 
-Play: a friend says "scrapbook that" while the hunt is active -> POST /hunts/{id}/attempt with the
+Play: a friend says "scrap that" while the hunt is active -> POST /hunts/{id}/attempt with the
 glasses photo + location -> geofence filter -> SIFT/homography match -> check-off.
 """
 import asyncio

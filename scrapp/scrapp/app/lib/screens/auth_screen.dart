@@ -53,7 +53,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 24),
             Center(child: Text('Scrapp', style: ScrappType.wordmark(72))),
-            const Center(child: Text('Say "scrapbook that". Keep the moment.', style: TextStyle(color: Palette.inkSoft, fontSize: 16))),
+            const Center(child: Text('Say "scrap that". Keep the moment.', style: TextStyle(color: Palette.inkSoft, fontSize: 16))),
             const SizedBox(height: 36),
             PaperCard(
               padding: const EdgeInsets.all(20),

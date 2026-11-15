@@ -46,7 +46,7 @@ async def main(user: str):
         t = now()
         cap = await db().captures.insert_one({
             "owner_id": u["_id"], "original_file_id": img_id, "captured_at": t, "location": None, "place_name": "From clips",
-            "trigger": "voice", "transcript": "scrapbook that", "device": "Meta glasses clip", "status": "ready",
+            "trigger": "voice", "transcript": "scrap that", "device": "Meta glasses clip", "status": "ready",
             "sticker_ids": [], "width": w, "height": h, "processed_at": t, "created_at": t,
         })
         st = await db().stickers.insert_one({

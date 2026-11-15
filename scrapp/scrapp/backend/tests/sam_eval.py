@@ -1,8 +1,8 @@
 """Score the segmenter on real photos with ground-truth masks (COCO 2017 val, see data/manifest.json).
 
 Three modes mirror how the product uses SAM:
-  text     "scrapbook that <noun>": prompt with the noun; hero = rank_candidates()[0]
-  generic  "scrapbook that": no noun; success if any of the ranked stickers matches the object
+  text     "scrap that <noun>": prompt with the noun; hero = rank_candidates()[0]
+  generic  "scrap that": no noun; success if any of the ranked stickers matches the object
   point    tap-to-cut: one positive click inside the object
 
 Everything runs at the pipeline's working resolution (SAM_MAX_SIDE) and is scored at full resolution.

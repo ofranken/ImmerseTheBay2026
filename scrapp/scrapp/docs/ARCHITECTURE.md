@@ -1,6 +1,6 @@
 # Scrapp architecture
 
-Scrapp is an AR scrapbook for Meta's displayless AI glasses (Ray-Ban Meta Gen 1/2, Oakley Meta HSTN/Vanguard). You say **"scrapbook that"** or press the glasses' capture button. The glasses take a photo, the server cuts the most central objects into die-cut stickers, and the original photo and its location are kept. In the app you collage stickers and AI-generated 3D models in space. You can send stickers that anchor to real objects ("hold up an apple"), and build geo-tagged scavenger hunts that friends play with their own glasses.
+Scrapp is an AR scrapbook for Meta's displayless AI glasses (Ray-Ban Meta Gen 1/2, Oakley Meta HSTN/Vanguard). You say **"scrap that"** or press the glasses' capture button. The glasses take a photo, the server cuts the most central objects into die-cut stickers, and the original photo and its location are kept. In the app you collage stickers and AI-generated 3D models in space. You can send stickers that anchor to real objects ("hold up an apple"), and build geo-tagged scavenger hunts that friends play with their own glasses.
 
 ```mermaid
 flowchart LR
@@ -24,7 +24,7 @@ flowchart LR
     MESHY["Meshy proxy"]
     DB[("MongoDB + GridFS")]
   end
-  MIC -- "\"scrapbook that\"" --> SVC
+  MIC -- "\"scrap that\"" --> SVC
   BTN -- SHORT_PRESS --> SVC
   SVC -- capturePhoto --> CAM
   CAM --> SVC --> OUT --> FL
@@ -41,7 +41,7 @@ flowchart LR
 
 | Original (Quest Pro) | Now (AI glasses + phone) | Why |
 |---|---|---|
-| Press-and-hold capture, up to 5 s of frames + eye-tracking pairs | One still per trigger: voice "scrapbook that" or a capture-button press | The glasses have no eye tracking and no app-controlled display; one 720p still is enough for stickers and is fast over Bluetooth |
+| Press-and-hold capture, up to 5 s of frames + eye-tracking pairs | One still per trigger: voice "scrap that" or a capture-button press | The glasses have no eye tracking and no app-controlled display; one 720p still is enough for stickers and is fast over Bluetooth |
 | Stitch frames by feature matching | Dropped | Single frame; the stitching step existed to widen a headset's field of view |
 | Gaze samples pick the object | **Head-direction prior**: masks closest to the centre of the head-mounted camera rank highest | The wearer is facing what they care about when they speak; this replaces gaze |
 | Python/OpenCV/SAM 2 off-board pipeline | Same idea: FastAPI + SAM 3 on a GPU server | Matches your answer: server SAM only |
@@ -84,7 +84,7 @@ Meta's DAT also has an experimental standalone high-resolution photo API (`camer
 
 | Trigger | How it works | Code |
 |---|---|---|
-| **"Scrapbook that"** | DAT **Speech** (`session.addSpeech()`) transcribes *on the glasses* and sends text, not audio, over Bluetooth. `VoiceCommandMatcher` fuzzy-matches the phrase, because recognizers produce "scrap book", "scrapple" and even "Scrabble cat". A 2.5 s debounce stops partial and final transcripts from firing twice. "Scrapbook that lamp" also passes `prompt="lamp"` (see section 5). | `GlassesManager.attachSpeech`, `VoiceCommandMatcher.kt` |
+| **"Scrap that"** | DAT **Speech** (`session.addSpeech()`) transcribes *on the glasses* and sends text, not audio, over Bluetooth. `VoiceCommandMatcher` fuzzy-matches the phrase, because recognizers produce "scrap book", "scrapple" and even "Scrabble cat". A 2.5 s debounce stops partial and final transcripts from firing twice. "Scrap that lamp" also passes `prompt="lamp"` (see section 5). | `GlassesManager.attachSpeech`, `VoiceCommandMatcher.kt` |
 | **Capture button** | DAT **Inputs** (`session.addInputs`) reports `InputEvent.Capture(SHORT_PRESS)` from the `CAPTURE_BUTTON` source | `GlassesManager.attachInputs` |
 | **"Hey Meta, start Scrapp"** | DAT **Voice Invocations** cold-launches or foregrounds the app; Scrapp answers `sendSuccess` and arms itself | `startVoiceInvocations`, `MainActivity.onNewIntent` |
 | **In-app button** | Same capture path, `trigger=app` | `GlassesBridge.captureNow()` |
@@ -94,7 +94,7 @@ During a hunt the same phrase checks the find, so there's no second phrase to re
 
 **Limits to know about**
 
-- There's no custom wake word. "Hey Meta" belongs to Meta AI. "Scrapbook that" works only while Scrapp's session is running (after you tap Start or say "Hey Meta, start Scrapp").
+- There's no custom wake word. "Hey Meta" belongs to Meta AI. "Scrap that" works only while Scrapp's session is running (after you tap Start or say "Hey Meta, start Scrapp").
 - Speech, Inputs and Voice Invocations are **experimental in DAT 1.0.1**. They work in development and beta release channels, but apps using them can't ship to production yet. Each must be enabled for the app in the Wearables Developer Center.
 - Speech takes no vocabulary hints; the locale is reported, not set. That's why matching is fuzzy.
 - Meta's docs don't say whether a capture-button press handled through Inputs *also* takes the glasses' own photo. Check this on your pair; if it does, the voice trigger alone gives a clean flow.
@@ -104,7 +104,7 @@ During a hunt the same phrase checks the find, so there's no second phrase to re
 `backend/app/services/segmentation.py` + `pipeline.py`
 
 1. Decode the original and downscale it so the long side is at most 1536 px (SAM input).
-2. **SAM 3 concept segmentation**: the spoken noun from "scrapbook that <noun>" is the text prompt; with no noun, SAM 3's point predictor is tapped at five points around the frame centre (generic words like "object" find almost nothing). Text detections below `SAM3_CONFIDENCE` are dropped.
+2. **SAM 3 concept segmentation**: the spoken noun from "scrap that <noun>" is the text prompt; with no noun, SAM 3's point predictor is tapped at five points around the frame centre (generic words like "object" find almost nothing). Text detections below `SAM3_CONFIDENCE` are dropped.
 3. **Rank** every mask (`rank_candidates`):
    - drop masks under 0.4% or over 65% of the frame, and masks touching 3 or more borders (floor, wall, sky)
    - score = 0.55 x centrality (Gaussian on centroid distance from frame centre) + 0.25 x SAM quality + 0.20 x object-size prior, +0.15 if the mask covers the exact centre
@@ -117,7 +117,7 @@ During a hunt the same phrase checks the find, so there's no second phrase to re
 
 | Option | Verdict |
 |---|---|
-| SAM 3 / 3.1 (Nov 2025) | Better when you *name* the object: "scrapbook that lamp" could segment exactly "lamp" via text prompts. Weights are gated on Hugging Face under Meta's SAM license, and it doesn't do label-free "segment everything" as directly. Scrapp already passes `prompt`, so add a `Sam3Segmenter` as an upgrade. |
+| SAM 3 / 3.1 (Nov 2025) | Better when you *name* the object: "scrap that lamp" could segment exactly "lamp" via text prompts. Weights are gated on Hugging Face under Meta's SAM license, and it doesn't do label-free "segment everything" as directly. Scrapp already passes `prompt`, so add a `Sam3Segmenter` as an upgrade. |
 | SAM 3D Objects | Could turn a sticker into 3D without Meshy. Research-heavy and GPU-hungry; Meshy is simpler for now. |
 | ML Kit Subject Segmentation (on device) | Free and instant, but Android-only and coarser. You chose server SAM. |
 | GrabCut (`SEGMENTER=grabcut`) | Included only so the pipeline runs on a laptop without a GPU. Not for real use. |
@@ -141,7 +141,7 @@ Animations: wiggle, bob, spin, pop. Each sticker also does an elastic "pop" when
 
 1. The creator picks located stickers; the server stores, per item, a crop of the original photo (`target_file_id`), the location and a radius (150 m by default).
 2. A friend opens the hunt and taps **Hunt with my glasses**. That sets the active hunt on the native side and arms the glasses.
-3. Saying "scrapbook that" in front of an artwork calls `POST /hunts/{id}/attempt` with the photo and GPS. The server:
+3. Saying "scrap that" in front of an artwork calls `POST /hunts/{id}/attempt` with the photo and GPS. The server:
    - keeps unfound items whose geofence contains the friend (GPS accuracy is added as slack)
    - runs SIFT + Lowe ratio + RANSAC homography against each target and accepts at 25 or more inliers and a 20% inlier ratio
    - checks off the best match and still makes stickers from the photo for the finder
@@ -250,7 +250,7 @@ Next steps, roughly in order:
 
 1. First build and on-glasses check of the capture-button behaviour
 2. Worker queue for SAM
-3. SAM 3 text prompts for "scrapbook that <noun>"
+3. SAM 3 text prompts for "scrap that <noun>"
 4. iOS Swift bridge
 5. Push notifications for shares
 6. Embedding vote for 3D hunt objects: built as a SIFT fallback (see section 6); still to tune on real glasses photos

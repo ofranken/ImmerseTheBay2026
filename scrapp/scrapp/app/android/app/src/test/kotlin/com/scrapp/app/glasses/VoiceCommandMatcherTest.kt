@@ -7,7 +7,11 @@ import org.junit.Test
 class VoiceCommandMatcherTest {
     private fun cmd(text: String) = VoiceCommandMatcher.match(text)
 
-    @Test fun plainPhrase() = assertEquals("scrapbook", cmd("Scrapbook that.")?.command)
+    @Test fun plainPhrase() = assertEquals("scrapbook", cmd("Scrap that.")?.command)
+    @Test fun oldPhraseStillWorks() = assertEquals("scrapbook", cmd("scrapbook that")?.command)
+    @Test fun scrapThatWithObject() = assertEquals("lamp", cmd("scrap that lamp")?.prompt)
+    @Test fun scrapThatPlain() = assertEquals("scrapbook", cmd("hey scrap that")?.command)
+    @Test fun scrapWithoutThatIsChatter() = assertNull(cmd("scrap the plan"))
     @Test fun splitWord() = assertEquals("scrapbook", cmd("scrap book that")?.command)
     @Test fun misheard() = assertEquals("scrapbook", cmd("Scrabble cat")?.command)
     @Test fun fuzzy() = assertEquals("scrapbook", cmd("crab book that")?.command)

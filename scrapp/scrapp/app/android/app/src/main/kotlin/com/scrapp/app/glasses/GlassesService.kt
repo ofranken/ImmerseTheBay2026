@@ -32,7 +32,7 @@ class GlassesService : Service() {
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentTitle("Scrapp is listening")
-            .setContentText("Say \"scrapbook that\" or press the capture button")
+            .setContentText("Say \"scrap that\" or press the capture button")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

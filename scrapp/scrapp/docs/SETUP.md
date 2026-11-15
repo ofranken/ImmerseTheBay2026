@@ -91,7 +91,7 @@ arcore_api_key=AIza...          # optional, outdoor geo anchors
 | Mode | What works |
 |---|---|
 | Developer Mode, IDs left at `0` | Camera capture via the in-app button. Fastest way to see photos flowing |
-| Registered project in a **development/beta** release channel | Voice "scrapbook that", capture button, "Hey Meta, start Scrapp". Meta requires the Developer Center approvals for these experimental features |
+| Registered project in a **development/beta** release channel | Voice "scrap that", capture button, "Hey Meta, start Scrapp". Meta requires the Developer Center approvals for these experimental features |
 
 **For "Hey Meta, start Scrapp":**
 
@@ -126,12 +126,12 @@ arcore_api_key=AIza...          # optional, outdoor geo anchors
 2. **Scrap tab → Link glasses in Meta AI.** The Meta AI app opens; approve, and it returns to Scrapp.
 3. **Settings → Camera access** and **Mic access** (both granted in Meta AI).
 4. **Start scrapbooking.** A notification ("Scrapp is listening") shows the service is up. Pills show Linked, Connected, Listening and Button active.
-5. Look at something and say **"scrapbook that"** (or press the capture button). You'll hear "Scrapbooking", then "Scrapbooked. N stickers." The Book tab fills in, grouped by place.
+5. Look at something and say **"scrap that"** (or press the capture button). You'll hear "Scrapbooking", then "Scrapbooked. N stickers." The Book tab fills in, grouped by place.
 6. Collage: **Studio → New collage**. Add stickers, then grow a 3D thing in Studio → 3D and add it. Size the save box and **Save to collection**.
 7. Social: add a friend by username (second account on another phone). On a sticker: **Send to a friend** → "On a kind of object" → apple. They open it from their inbox and hold up an apple.
-8. Hunt: make a few located captures somewhere, then **Hunts → Create a hunt** and send it. Your friend taps **Hunt with my glasses** on site and says "scrapbook that" at each find.
+8. Hunt: make a few located captures somewhere, then **Hunts → Create a hunt** and send it. Your friend taps **Hunt with my glasses** on site and says "scrap that" at each find.
 
-**Without glasses:** Settings → Developer → **Mock glasses** (Meta's MockDeviceKit pairs simulated Ray-Ban Meta glasses and uses the phone camera as their camera), then "Simulate 'scrapbook that'". Or use **Photo** on the Scrap tab to send any phone photo through the same pipeline.
+**Without glasses:** Settings → Developer → **Mock glasses** (Meta's MockDeviceKit pairs simulated Ray-Ban Meta glasses and uses the phone camera as their camera), then "Simulate 'scrap that'". Or use **Photo** on the Scrap tab to send any phone photo through the same pipeline.
 
 ## 4b. Public access: use the app from anywhere (no USB, same Wi-Fi not needed)
 

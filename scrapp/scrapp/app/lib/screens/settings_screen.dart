@@ -54,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Voice: "scrapbook that"'),
+                title: const Text('Voice: "scrap that"'),
                 subtitle: const Text('Transcribed on the glasses while Scrapp is running'),
                 value: s.voice,
                 onChanged: (v) => setState(() { s.voice = v; app.saveGlassesSettings(); }),
@@ -89,8 +89,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               if (s.mockDevice)
-                ScrappButton(label: 'Simulate "scrapbook that"', icon: Icons.record_voice_over_rounded, style: ScrappButtonStyle.quiet,
-                    onPressed: () => GlassesBridge.simulateTranscript('scrapbook that')),
+                ScrappButton(label: 'Simulate "scrap that"', icon: Icons.record_voice_over_rounded, style: ScrappButtonStyle.quiet,
+                    onPressed: () => GlassesBridge.simulateTranscript('scrap that')),
             ])),
             const SizedBox(height: 24),
             ScrappButton(label: 'Sign out', icon: Icons.logout_rounded, style: ScrappButtonStyle.danger, onPressed: () async {

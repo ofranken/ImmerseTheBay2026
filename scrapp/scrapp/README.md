@@ -1,6 +1,6 @@
 # Scrapp
 
-An AR scrapbook for Meta AI glasses. Say **"scrapbook that"** (or press the capture button) and Scrapp photographs what you're looking at, keeps the original and its location, and cuts the most central objects into die-cut stickers with SAM. Collage stickers and AI-generated 3D models in space, send stickers that stick to real things ("hold up an apple"), and turn your favourite places into scavenger hunts your friends play with their own glasses.
+An AR scrapbook for Meta AI glasses. Say **"scrap that"** (or press the capture button) and Scrapp photographs what you're looking at, keeps the original and its location, and cuts the most central objects into die-cut stickers with SAM. Collage stickers and AI-generated 3D models in space, send stickers that stick to real things ("hold up an apple"), and turn your favourite places into scavenger hunts your friends play with their own glasses.
 
 | Folder | What's inside |
 |---|---|

@@ -29,7 +29,7 @@ class GlassesBridge {
   static Future<String> requestPermission(String permission) async =>
       (await _call('requestPermission', {'permission': permission}))['result']?.toString() ?? 'error';
 
-  /// Starts the foreground service, the device session, voice ("scrapbook that") and the capture button.
+  /// Starts the foreground service, the device session, voice ("scrap that") and the capture button.
   static Future<void> arm({bool warmCamera = true, bool voice = true, bool button = true}) =>
       _call('arm', {'warmCamera': warmCamera, 'voice': voice, 'button': button});
   static Future<void> disarm() => _call('disarm');

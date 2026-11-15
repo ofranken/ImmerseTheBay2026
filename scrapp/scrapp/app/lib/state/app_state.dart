@@ -10,7 +10,7 @@ import '../services/api.dart';
 const _defaultApi = String.fromEnvironment('API_BASE', defaultValue: 'http://10.0.2.2:8000');
 
 class GlassesSettings {
-  bool warmCamera = true; // keep a low-fps stream open so "scrapbook that" captures in ~1 s
+  bool warmCamera = true; // keep a low-fps stream open so "scrap that" captures in ~1 s
   bool voice = true;
   bool button = true;
   bool mockDevice = false;

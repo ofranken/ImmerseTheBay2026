@@ -31,7 +31,7 @@ class CaptureMeta(BaseModel):
     place_name: str | None = None
     trigger: Literal["voice", "button", "app", "import", "voice_invocation"] = "app"
     transcript: str | None = None
-    prompt: str | None = None  # "scrapbook that <noun>" -> noun (used by a SAM 3 backend)
+    prompt: str | None = None  # "scrap that <noun>" -> noun (used by a SAM 3 backend)
     device: str | None = None
 
 

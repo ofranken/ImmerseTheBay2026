@@ -62,4 +62,4 @@ def test_named_object_touching_the_frame_is_not_background():
     h, w = 480, 640
     c = candidate_from_mask(np.ones((h, w), bool), 0.9)  # fills the frame, touches every border
     assert rank_candidates([c], h, w, k=2) == []  # unnamed: dropped as background
-    assert rank_candidates([c], h, w, k=2, named=True) == [c]  # "scrapbook that <noun>": kept
+    assert rank_candidates([c], h, w, k=2, named=True) == [c]  # "scrap that <noun>": kept
