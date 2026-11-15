@@ -93,7 +93,11 @@ async def inbox(user=Depends(current_user)):
         item = await db()[KIND_COLLECTION[s["kind"]]].find_one({"_id": s["item_id"]})
         if not item:
             continue
-        shaped = {"sticker": sticker_out, "collage": collage_out, "mesh": mesh_out}.get(s["kind"], clean)(item)
+        if s["kind"] == "hunt":
+            from .hunts import _hunt_out  # full item data so the card needs no refetch
+            shaped = await _hunt_out(item, user["_id"])
+        else:
+            shaped = {"sticker": sticker_out, "collage": collage_out, "mesh": mesh_out}.get(s["kind"], clean)(item)
         entry = {**clean(s), "from": user_public(sender) if sender else None, "item": shaped}
         if s.get("anchor") and s["anchor"].get("target_file_id"):
             entry["anchor"]["target_url"] = file_url(s["anchor"]["target_file_id"])

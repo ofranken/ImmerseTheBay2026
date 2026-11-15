@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../models.dart';
+import '../services/api.dart';
 import '../services/glasses_bridge.dart';
 import '../services/location.dart';
 import 'app_state.dart';
@@ -62,7 +63,26 @@ class GlassesState extends ChangeNotifier {
       error = 'Glasses bridge unavailable: $e';
     }
     notifyListeners();
+    await _restoreActiveHunt();
     await drainOutbox();
+  }
+
+  /// Resume the hunt that was active before the app restarted (and tell the native side again).
+  Future<void> _restoreActiveHunt() async {
+    final id = app.activeHuntId;
+    if (id == null || activeHunt != null) return;
+    try {
+      final h = await social.fetchHunt(id);
+      if (h.completed) {
+        await setActiveHunt(null);
+      } else {
+        await setActiveHunt(h);
+      }
+    } on ApiException catch (e) {
+      if (e.status == 404) await setActiveHunt(null); // the hunt was deleted
+    } catch (_) {
+      // Offline: keep the saved id and try again next start.
+    }
   }
 
   void _onEvent(Map<String, dynamic> e) {
@@ -104,6 +124,7 @@ class GlassesState extends ChangeNotifier {
 
   Future<void> setActiveHunt(Hunt? h) async {
     activeHunt = h;
+    await app.saveActiveHunt(h?.id);
     await GlassesBridge.setActiveHunt(h?.id, h?.title);
     notifyListeners();
   }

@@ -38,4 +38,5 @@ async def ensure_indexes() -> None:
     await d.shares.create_index([("to_id", ASCENDING), ("created_at", DESCENDING)])
     await d.shares.create_index([("kind", ASCENDING), ("item_id", ASCENDING), ("to_id", ASCENDING)])
     await d.hunts.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
+    await d.hunts.create_index("items.sticker_id")
     await d.hunt_progress.create_index([("hunt_id", ASCENDING), ("user_id", ASCENDING)], unique=True)

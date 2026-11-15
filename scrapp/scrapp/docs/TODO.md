@@ -27,8 +27,11 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Tap-to-cut often picks a sub-part (59% hit rate in our test); prefer the whole object.
 - [ ] App: retry the first library load if the network was down at startup (empty Sticker Book until restart).
 
-## Later
-- [ ] Plan the scavenger hunt feature (low priority; `hunts` collections already exist in the backend).
+## Scavenger hunt (built; hardened, see Done)
+- [ ] Verify on real glasses and ARCore: SIFT matching only suits flat, textured targets (paintings, signs, posters).
+  Generic objects (a cup, a plant) need an embedding vote (CLIP/DINO) before they match reliably.
+- [ ] Wire the `found it` voice command (matcher exists in `VoiceCommandMatcher.kt`, nothing consumes it) or remove it.
+- [ ] Hunt map view, per-item radius/title editing, leaderboard.
 
 ## Security and housekeeping
 - [ ] Rotate secrets that have been pasted into chat or screenshots: the Atlas password and the Meshy key.
@@ -39,6 +42,9 @@ Newest priorities first. Move a line to "Done" when it ships.
 - [ ] Evaluate on real glasses photos (the test set is COCO).
 
 ## Done
+- [x] Scavenger hunt hardening: completion exposed and stamped once, geofenced phone check-off, owner progress view, full hunt data
+  in the share inbox, survives deleted stickers, batch lookups, play screen loads/retries, completion banner, owner delete,
+  active hunt persisted across restarts, HTTP tests in `backend/tests/test_hunts.py`.
 - [x] SAM 3 server-side segmentation with an object vocabulary and tap-to-cut.
 - [x] Public access over Cloudflare at https://scrapp.nmagic.dev (tunnel runs on the laptop).
 - [x] Meshy integration hardened: current API, spending caps, atomic refine, stored results, delete, clear errors.

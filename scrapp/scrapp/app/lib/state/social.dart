@@ -73,8 +73,22 @@ class Social extends ChangeNotifier {
 
   Future<Hunt> startHunt(String id) async => _replace(Hunt(Map<String, dynamic>.from(await api.post('/hunts/$id/start'))));
 
-  Future<Hunt> markFound(String huntId, String itemId, {String method = 'phone_ar'}) async =>
-      _replace(Hunt(Map<String, dynamic>.from(await api.post('/hunts/$huntId/items/$itemId/found?method=$method'))));
+  Future<Hunt> markFound(String huntId, String itemId) async =>
+      _replace(Hunt(Map<String, dynamic>.from(await api.post('/hunts/$huntId/items/$itemId/found'))));
+
+  /// Loads one hunt (e.g. opened from the share inbox before the list has it).
+  Future<Hunt> fetchHunt(String id) async => _replace(Hunt(Map<String, dynamic>.from(await api.get('/hunts/$id'))));
+
+  Future<void> deleteHunt(String id) async {
+    await api.delete('/hunts/$id');
+    hunts.removeWhere((h) => h.id == id);
+    notifyListeners();
+  }
+
+  Future<List<HuntPlayer>> huntPlayers(String id) async {
+    final r = Map<String, dynamic>.from(await api.get('/hunts/$id/progress'));
+    return (r['players'] as List).map((e) => HuntPlayer(Map<String, dynamic>.from(e))).toList();
+  }
 
   Hunt replaceFromJson(Map<String, dynamic> j) => _replace(Hunt(j));
 

@@ -213,7 +213,7 @@ Media URLs are **signed** (`/files/{id}?t=<jwt>`, 7 days) when a response is bui
 | Collages | `POST /collages`, `PUT /collages/{id}`, `GET /collages`, `GET /collages/{id}`, `POST /collages/{id}/publish`, `GET /public/collages/{token}`, `GET /c/{token}` (viewer) |
 | 3D | `POST /meshes/text`, `POST /meshes/from-sticker`, `GET /meshes`, `GET /meshes/{id}` (advances the Meshy job) |
 | Social | `GET /users/search`, `GET /friends`, `POST /friends/request`, `POST /friends/{id}/accept`, `POST /shares`, `GET /shares/inbox`, `POST /shares/{id}/seen` |
-| Hunts | `POST /hunts`, `GET /hunts`, `GET /hunts/{id}`, `POST /hunts/{id}/start`, `POST /hunts/{id}/attempt`, `POST /hunts/{id}/items/{item}/found`, `DELETE /hunts/{id}` |
+| Hunts | `POST /hunts`, `GET /hunts`, `GET /hunts/{id}`, `POST /hunts/{id}/start`, `POST /hunts/{id}/attempt`, `POST /hunts/{id}/items/{item}/found` (phone AR; optional `lat`/`lng`/`accuracy_m` keep the geofence), `GET /hunts/{id}/progress` (owner: each player's found/total), `DELETE /hunts/{id}` (also removes progress and shares). Hunt output includes `completed` and `completed_at`. |
 
 The skeleton runs segmentation as a FastAPI background task in the API process. Before many users, move it to a worker queue (e.g. arq/Redis or Celery) so GPU work doesn't share the web process.
 

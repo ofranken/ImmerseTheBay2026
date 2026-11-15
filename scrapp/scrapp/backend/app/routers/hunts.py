@@ -71,8 +71,10 @@ async def _hunt_out(h: dict, user_id) -> dict:
     progress = await db().hunt_progress.find_one({"hunt_id": h["_id"], "user_id": user_id})
     found = (progress or {}).get("found", {})
     items = []
+    ids = [it["sticker_id"] for it in h["items"]]
+    stickers = {s["_id"]: s async for s in db().stickers.find({"_id": {"$in": ids}})}  # one query, not one per item
     for it in h["items"]:
-        st = await db().stickers.find_one({"_id": it["sticker_id"]})
+        st = stickers.get(it["sticker_id"])
         d = clean(it)
         d["sticker"] = sticker_out(st) if st else None
         d["target_url"] = file_url(it["target_file_id"])
@@ -84,6 +86,8 @@ async def _hunt_out(h: dict, user_id) -> dict:
     out["found_count"] = len(found)
     out["total"] = len(items)
     out["started"] = progress is not None
+    out["completed_at"] = (progress or {}).get("completed_at")
+    out["completed"] = bool(out["total"]) and out["found_count"] == out["total"]
     out["is_owner"] = h["owner_id"] == user_id
     return out
 
@@ -130,8 +134,10 @@ async def _mark_found(h: dict, user_id, item_id: str, method: str, capture_id=No
         upsert=True,
     )
     out = await _hunt_out(h, user_id)
-    if out["found_count"] == out["total"]:
-        await db().hunt_progress.update_one({"hunt_id": h["_id"], "user_id": user_id}, {"$set": {"completed_at": now()}})
+    if out["completed"] and not out["completed_at"]:  # stamp once, never overwrite
+        await db().hunt_progress.update_one(
+            {"hunt_id": h["_id"], "user_id": user_id, "completed_at": {"$exists": False}}, {"$set": {"completed_at": now()}})
+        out = await _hunt_out(h, user_id)  # report the stored value (Mongo keeps milliseconds)
     return out
 
 
@@ -177,11 +183,40 @@ async def attempt(
 
 
 @router.post("/{hunt_id}/items/{item_id}/found")
-async def found(hunt_id: str, item_id: str, method: str = "phone_ar", user=Depends(current_user)):
+async def found(hunt_id: str, item_id: str, lat: float | None = None, lng: float | None = None,
+                accuracy_m: float | None = None, user=Depends(current_user)):
+    """Phone AR check-off: the phone tracked the item's target image, so the client vouches for the find.
+    When it sends a location we still enforce the geofence."""
     h = await _visible_hunt(hunt_id, user)
-    if not any(i["item_id"] == item_id for i in h["items"]):
+    item = next((i for i in h["items"] if i["item_id"] == item_id), None)
+    if not item:
         raise HTTPException(404, "No such item")
-    return await _mark_found(h, user["_id"], item_id, method)
+    loc = item.get("location")
+    if loc and lat is not None and lng is not None:
+        ilng, ilat = loc["coordinates"]
+        slack = (accuracy_m or 0) + item.get("radius_m", get_settings().hunt_default_radius_m)
+        if haversine_m(ilat, ilng, lat, lng) > slack:
+            raise HTTPException(409, "You're too far from this find")
+    return await _mark_found(h, user["_id"], item_id, "phone_ar")
+
+
+@router.get("/{hunt_id}/progress")
+async def hunt_progress(hunt_id: str, user=Depends(current_user)):
+    """Owner only: how far each player has got."""
+    h = await db().hunts.find_one({"_id": oid(hunt_id), "owner_id": user["_id"]})
+    if not h:
+        raise HTTPException(404, "Not found")
+    total = len(h["items"])
+    players = []
+    async for p in db().hunt_progress.find({"hunt_id": h["_id"]}):
+        u = await db().users.find_one({"_id": p["user_id"]})
+        players.append({
+            "user": {"id": str(p["user_id"]), "username": (u or {}).get("username"),
+                     "display_name": (u or {}).get("display_name")},
+            "found_count": len(p.get("found", {})), "total": total,
+            "started_at": p.get("started_at"), "completed_at": p.get("completed_at"),
+        })
+    return {"hunt_id": hunt_id, "total": total, "players": players}
 
 
 @router.delete("/{hunt_id}")
@@ -190,4 +225,5 @@ async def delete_hunt(hunt_id: str, user=Depends(current_user)):
     if not res.deleted_count:
         raise HTTPException(404, "Not found")
     await db().hunt_progress.delete_many({"hunt_id": oid(hunt_id)})
+    await db().shares.delete_many({"kind": "hunt", "item_id": oid(hunt_id)})
     return {"ok": True}

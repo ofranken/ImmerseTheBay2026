@@ -61,7 +61,13 @@ class AppState extends ChangeNotifier {
   Future<void> register(String username, String email, String password) async =>
       _session(await api.post('/auth/register', {'username': username, 'email': email, 'password': password}));
 
+  /// The hunt being played with the glasses, kept across app restarts.
+  String? get activeHuntId => _prefs.getString('active_hunt');
+  Future<void> saveActiveHunt(String? id) async =>
+      id == null ? await _prefs.remove('active_hunt') : await _prefs.setString('active_hunt', id);
+
   Future<void> signOut() async {
+    await _prefs.remove('active_hunt');
     api.token = null;
     user = null;
     await _prefs.remove('token');

@@ -142,4 +142,16 @@ class Hunt {
   int get total => (j['total'] as num?)?.toInt() ?? items.length;
   bool get isOwner => j['is_owner'] == true;
   bool get started => j['started'] == true;
+  bool get completed => j['completed'] == true;
+  DateTime? get completedAt => j['completed_at'] == null ? null : DateTime.tryParse(j['completed_at']);
+}
+
+/// One player's progress in a hunt (owner view).
+class HuntPlayer {
+  HuntPlayer(this.j);
+  final Map<String, dynamic> j;
+  String get name => (j['user'] as Map?)?['display_name'] ?? (j['user'] as Map?)?['username'] ?? 'Someone';
+  int get foundCount => (j['found_count'] as num?)?.toInt() ?? 0;
+  int get total => (j['total'] as num?)?.toInt() ?? 0;
+  bool get completed => j['completed_at'] != null;
 }

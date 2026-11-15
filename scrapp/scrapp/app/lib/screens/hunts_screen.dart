@@ -99,7 +99,7 @@ class _HuntBuilderScreenState extends State<HuntBuilderScreen> {
           const SizedBox(height: 10),
           TextField(controller: description, decoration: const InputDecoration(labelText: 'Note for your friends (optional)'), maxLines: 2),
           const SectionTitle('Pick the finds'),
-          if (stickers.isEmpty) const EmptyNote(icon: Icons.location_off_rounded, title: 'No located stickers', body: 'Stickers get a location tag when you scrapbook with location on.'),
+          if (stickers.isEmpty) const EmptyNote(icon: Icons.location_off_rounded, title: 'No located stickers', body: 'Hunts are built from stickers that have a place. Scrapbook with location on (and allow location for Scrapp), then come back.'),
           for (final e in byPlace.entries) ...[
             Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w900))),
             for (final s in e.value)
@@ -161,14 +161,52 @@ class HuntPlayScreen extends StatefulWidget {
 
 class _HuntPlayScreenState extends State<HuntPlayScreen> {
   Position? here;
+  String? loadError;
+  List<HuntPlayer> players = [];
 
   @override
   void initState() {
     super.initState();
     LocationService.current().then((p) => mounted ? setState(() => here = p) : null);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Hunt? get hunt => context.read<Social>().hunts.where((h) => h.id == widget.huntId).firstOrNull;
+
+  /// Always refresh on open (found state, completion), and fetch it if the list doesn't have it yet.
+  Future<void> _load() async {
+    final social = context.read<Social>();
+    setState(() => loadError = null);
+    try {
+      final h = await social.fetchHunt(widget.huntId);
+      if (h.isOwner) {
+        final p = await social.huntPlayers(widget.huntId);
+        if (mounted) setState(() => players = p);
+      }
+    } catch (e) {
+      if (mounted && hunt == null) setState(() => loadError = '$e');
+    }
+  }
+
+  Future<void> _delete(Hunt h) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this hunt?'),
+        content: const Text('It disappears for everyone you sent it to.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Palette.danger))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final social = context.read<Social>();
+    final glasses = context.read<GlassesState>();
+    if (glasses.activeHunt?.id == h.id) await glasses.setActiveHunt(null);
+    await social.deleteHunt(h.id);
+    if (mounted) Navigator.pop(context);
+  }
 
   Future<void> _findWithPhone(Hunt h) async {
     final remaining = h.items.where((i) => !i.found && i.targetUrl != null && i.sticker?.imageUrl != null).toList();
@@ -193,6 +231,10 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
     final social = context.read<Social>();
     await social.refreshFriends();
     if (!mounted) return;
+    if (social.friends.isEmpty) {
+      toast(context, 'Add a friend first (Friends tab), then send them the hunt.');
+      return;
+    }
     final picked = <String>{};
     final ok = await showDialog<bool>(
       context: context,
@@ -217,12 +259,33 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
     context.watch<Social>();
     final glasses = context.watch<GlassesState>();
     final h = hunt;
-    if (h == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (h == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('HUNT')),
+        body: Center(
+          child: loadError == null
+              ? const CircularProgressIndicator()
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Couldn\'t load this hunt.', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    const SizedBox(height: 6),
+                    Text(loadError!, textAlign: TextAlign.center, style: const TextStyle(color: Palette.inkSoft)),
+                    const SizedBox(height: 14),
+                    ScrappButton(label: 'Try again', icon: Icons.refresh_rounded, onPressed: _load),
+                  ]),
+                ),
+        ),
+      );
+    }
     final active = glasses.activeHunt?.id == h.id;
     return Scaffold(
       appBar: AppBar(
         title: Text(h.title.toUpperCase(), overflow: TextOverflow.ellipsis),
-        actions: [if (h.isOwner) IconButton(tooltip: 'Send to friends', icon: const Icon(Icons.send_rounded), onPressed: () => _share(h))],
+        actions: [
+          if (h.isOwner) IconButton(tooltip: 'Send to friends', icon: const Icon(Icons.send_rounded), onPressed: () => _share(h)),
+          if (h.isOwner) IconButton(tooltip: 'Delete hunt', icon: const Icon(Icons.delete_outline_rounded, color: Palette.danger), onPressed: () => _delete(h)),
+        ],
       ),
       body: PaperBackground(
         child: ListView(padding: const EdgeInsets.all(18), children: [
@@ -231,6 +294,17 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
           LinearProgressIndicator(value: h.total == 0 ? 0 : h.foundCount / h.total, minHeight: 12, borderRadius: BorderRadius.circular(8), color: Palette.sageDeep, backgroundColor: Palette.card),
           const SizedBox(height: 6),
           Text('${h.foundCount} of ${h.total} found', style: const TextStyle(fontWeight: FontWeight.w900)),
+          if (h.completed) ...[
+            const SizedBox(height: 12),
+            PaperCard(
+              color: Palette.sage,
+              child: Row(children: [
+                const Icon(Icons.emoji_events_rounded, size: 34),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Hunt complete! You found all ${h.total}.', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+              ]),
+            ),
+          ],
           const SizedBox(height: 14),
           ScrappButton(
             label: active ? 'Hunting with glasses' : 'Hunt with my glasses',
@@ -249,6 +323,22 @@ class _HuntPlayScreenState extends State<HuntPlayScreen> {
           ScrappButton(label: 'Find with phone camera', icon: Icons.center_focus_strong_rounded, style: ScrappButtonStyle.quiet, expand: true, onPressed: () => _findWithPhone(h)),
           const SectionTitle('Finds'),
           for (final i in h.items) _ItemCard(item: i, here: here),
+          if (h.isOwner && players.isNotEmpty) ...[
+            const SectionTitle('Players'),
+            for (final p in players)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: PaperCard(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    Icon(p.completed ? Icons.emoji_events_rounded : Icons.directions_walk_rounded),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800))),
+                    Text('${p.foundCount}/${p.total}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  ]),
+                ),
+              ),
+          ],
         ]),
       ),
     );
